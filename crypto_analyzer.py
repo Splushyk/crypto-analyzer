@@ -82,7 +82,7 @@ def analyze_data(data):
     :return: Кортеж из найденных целевых данных:
         top_up - топ-3 лидера роста за 24 часа,
         top_down - топ-3 лидера падения за 24 часа,
-        max_volume - монета с максимальным объёмом торгов,
+        max_value - монета с максимальным объёмом торгов,
         total_market_cap - суммарная капитализация всех 50 монет.
     """
     top_price_change = [coin for coin in data
@@ -91,16 +91,16 @@ def analyze_data(data):
     top_up = get_top_coins(top_price_change, "price_change_percentage_24h")
     top_down = get_top_coins(top_price_change, "price_change_percentage_24h", reverse=False)
 
-    max_volume = get_top_coins(data, "total_volume", n=1)[0]
+    max_value = get_top_coins(data, "total_value", n=1)[0]
     total_market_cap = sum(coin.get("market_cap") or 0 for coin in data)
 
-    return top_up, top_down, max_volume, total_market_cap
+    return top_up, top_down, max_value, total_market_cap
 
 
 def display_results(
         top_up,
         top_down,
-        max_volume,
+        max_value,
         total_market_cap
 ):
     """
@@ -108,7 +108,7 @@ def display_results(
 
     :param top_up: Топ-3 лидера роста за 24 часа.
     :param top_down: Топ-3 лидера падения за 24 часа.
-    :param max_volume: Монета с максимальным объёмом торгов.
+    :param max_value: Монета с максимальным объёмом торгов.
     :param total_market_cap: Суммарная капитализация всех 50 монет.
     :return: None.
     """
@@ -129,17 +129,17 @@ def display_results(
     console.print(table_down)
 
     console.print(
-        f"\n[bold white]Монета с максимальным объёмом:[/bold white] {max_volume["name"]} — ${max_volume["total_volume"]:,.0f}")
+        f"\n[bold white]Монета с максимальным объёмом:[/bold white] {max_value["name"]} — ${max_value["total_value"]:,.0f}")
     console.print(f"[bold white]Суммарная капитализация топ-50:[/bold white] ${total_market_cap:,.0f}")
 
 
-def save_report(top_up, top_down, max_volume, total_market_cap):
+def save_report(top_up, top_down, max_value, total_market_cap):
     """
     Сохраняет отчет в файл формата json.
 
     :param top_up: Топ-3 лидера роста за 24 часа.
     :param top_down: Топ-3 лидера падения за 24 часа.
-    :param max_volume: Монета с максимальным объёмом торгов.
+    :param max_value: Монета с максимальным объёмом торгов.
     :param total_market_cap: Суммарная капитализация всех 50 монет.
     :return: None.
     """
@@ -151,17 +151,17 @@ def save_report(top_up, top_down, max_volume, total_market_cap):
         "total_coins_analyzed": 50,
         "total_market_cap_usd": total_market_cap,
         "top_gainers": [
-            {key: volume for key, volume in coin.items()
+            {key: value for key, value in coin.items()
              if key in required_keys}
             for coin in top_up
         ],
         "top_losers": [
-            {key: volume for key, volume in coin.items()
+            {key: value for key, value in coin.items()
              if key in required_keys}
             for coin in top_down
         ],
-        "highest_volume": {key: volume for key, volume in max_volume.items() if
-                           key in ["name", "symbol", "total_volume"]}
+        "highest_value": {key: value for key, value in max_value.items() if
+                           key in ["name", "symbol", "total_value"]}
     }
 
     with open("crypto_report.json", "w", encoding="utf-8") as file:
@@ -173,15 +173,15 @@ def save_report(top_up, top_down, max_volume, total_market_cap):
         )
 
 
-top_up = top_down = max_vol = total_cap = None
+top_up = top_down = max_val = total_cap = None
 
 try:
     with console.status("Загружаем данные..."):
         coins = get_crypto_data(url)
 
-    top_up, top_down, max_vol, total_cap = analyze_data(coins)
-    display_results(top_up, top_down, max_vol, total_cap)
-    save_report(top_up, top_down, max_vol, total_cap)
+    top_up, top_down, max_val, total_cap = analyze_data(coins)
+    display_results(top_up, top_down, max_val, total_cap)
+    save_report(top_up, top_down, max_val, total_cap)
 
 except requests.exceptions.RequestException as e:
     logger.error(f"Не удалось загрузить данные: {e}")
