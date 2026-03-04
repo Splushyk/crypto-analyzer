@@ -14,25 +14,6 @@ console = Console()
 
 url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=1"
 
-
-class Cryptocurrency:
-    def __init__(self, name: str, symbol: str, price: float, change_24h: float, volume: float, market_cap: float):
-        self.name = name
-        self.symbol = symbol.upper()
-        self.price = price or 0.0
-        self.change_24h = change_24h or 0.0  # Защита от None
-        self.volume = volume or 0.0
-        self.market_cap = market_cap or 0.0
-
-    def __str__(self):
-        return f"{self.name} ({self.symbol}): ${self.price:,.2f} ({self.change_24h:+.2f}%)"
-
-    def __lt__(self, other):
-        if not isinstance(other, Cryptocurrency):
-            return NotImplemented
-        return self.change_24h < other.change_24h
-
-
 def retry(max_attempts, delay):
     """
     Декоратор, который оборачивает функцию логикой повторных попыток.
@@ -62,18 +43,38 @@ def retry(max_attempts, delay):
     return decorator
 
 
-@retry(max_attempts=3, delay=2)
-def get_crypto_data(site):
-    """
-    Отправляет запрос к API.
+class Cryptocurrency:
+    def __init__(self, name: str, symbol: str, price: float, change_24h: float, volume: float, market_cap: float):
+        self.name = name
+        self.symbol = symbol.upper()
+        self.price = price or 0.0
+        self.change_24h = change_24h or 0.0  # Защита от None
+        self.volume = volume or 0.0
+        self.market_cap = market_cap or 0.0
 
-    :param site: Адрес запроса.
-    :return: Список словарей с данными по каждой монете.
-    """
-    response = requests.get(site, timeout=10)
-    response.raise_for_status()
-    data = response.json()
-    return data
+    def __str__(self):
+        return f"{self.name} ({self.symbol}): ${self.price:,.2f} ({self.change_24h:+.2f}%)"
+
+    def __lt__(self, other):
+        if not isinstance(other, Cryptocurrency):
+            return NotImplemented
+        return self.change_24h < other.change_24h
+
+
+class ApiClient:
+    def __init__(self, base_url: str, api_key: str | None = None):
+        self.base_url = base_url
+        self.api_key = api_key
+
+    @retry(max_attempts=3, delay=2)
+    def get_json(self, endpoint: str = "", params: dict | None = None):
+        headers = {"Accepts": "application/json"}
+        if self.api_key:
+            headers["X-CMC_PRO_API_KEY"] = self.api_key
+
+        response = requests.get(f"{self.base_url}{endpoint}", headers=headers, params=params, timeout=10)
+        response.raise_for_status()
+        return response.json()
 
 
 def get_top_coins(data, key, n=3, reverse=True):
@@ -196,7 +197,8 @@ top_up = top_down = max_val = total_cap = None
 
 try:
     with console.status("Загружаем данные..."):
-        coins = get_crypto_data(url)
+        client = ApiClient(base_url=url)
+        coins = client.get_json()
 
     top_up, top_down, max_val, total_cap = analyze_data(coins)
     display_results(top_up, top_down, max_val, total_cap)
