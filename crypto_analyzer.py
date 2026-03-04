@@ -52,6 +52,7 @@ def retry(max_attempts, delay):
 
 
 class Cryptocurrency:
+    """Представляет криптовалюту с основными рыночными данными."""
     def __init__(self, name: str, symbol: str, price: float, change_24h: float, volume: float, market_cap: float):
         self.name = name
         self.symbol = symbol.upper()
@@ -70,6 +71,7 @@ class Cryptocurrency:
 
 
 class BaseParser(ABC):
+    """Абстрактный базовый класс для парсеров сырых данных API."""
     @abstractmethod
     def parse(self, raw_data: list) -> list[Cryptocurrency]:
         """Принимает сырой список словарей и возвращает список объектов Cryptocurrency"""
@@ -77,6 +79,7 @@ class BaseParser(ABC):
 
 
 class GeckoParser(BaseParser):
+    """Парсер для данных CoinGecko API."""
     def parse(self, raw_data: list) -> list[Cryptocurrency]:
         # Мы берем данные из словаря (item.get) и создаем объект нашего класса
         return [
@@ -93,6 +96,7 @@ class GeckoParser(BaseParser):
 
 
 class CMCParser(BaseParser):
+    """Парсер для данных CoinMarketCap API."""
     def parse(self, raw_data: list) -> list[Cryptocurrency]:
         return [
             Cryptocurrency(
@@ -109,6 +113,7 @@ class CMCParser(BaseParser):
 
 
 class ApiClient:
+    """HTTP-клиент для выполнения GET-запросов к API."""
     def __init__(self, base_url: str, headers: dict | None = None):
         self.base_url = base_url
         # Если заголовки не переданы, используем пустой словарь
@@ -130,6 +135,7 @@ class ApiClient:
 
 
 class CryptoProvider(ABC):
+    """Абстрактный базовый класс для провайдеров криптовалютных данных."""
     @abstractmethod
     def get_coins(self) -> list[Cryptocurrency]:
         """Должен вернуть список объектов Cryptocurrency"""
@@ -137,6 +143,7 @@ class CryptoProvider(ABC):
 
 
 class GeckoProvider(CryptoProvider):
+    """Провайдер данных CoinGecko. Получает топ-50 монет по капитализации."""
     def __init__(self, client: ApiClient, parser: BaseParser):
         self.params = {
             "vs_currency": "usd",
@@ -153,6 +160,7 @@ class GeckoProvider(CryptoProvider):
 
 
 class CMCProvider(CryptoProvider):
+    """Провайдер данных CoinMarketCap. Требует API-ключ в переменной окружения CMC_API_KEY."""
     def __init__(self, client: ApiClient, parser: BaseParser):
         self.client = client
         self.parser = parser
@@ -170,6 +178,7 @@ class CMCProvider(CryptoProvider):
 
 
 class CryptoAnalyzer:
+    """Анализирует список криптовалют: топ роста, падения, объёма и капитализации."""
     def __init__(self, data: list[Cryptocurrency]):
         self.data = data
 
@@ -197,6 +206,7 @@ class CryptoAnalyzer:
 
 
 class BaseVisualizer(ABC):
+    """Абстрактный базовый класс для отображения результатов анализа."""
     @abstractmethod
     def display(self, results: dict):
         """Метод для отображения результатов анализа"""
@@ -204,6 +214,7 @@ class BaseVisualizer(ABC):
 
 
 class ConsoleVisualizer(BaseVisualizer):
+    """Выводит результаты анализа в консоль в виде таблиц."""
     def __init__(self):
         self.console = Console()
 
@@ -232,11 +243,11 @@ class ConsoleVisualizer(BaseVisualizer):
 
 
 class JsonVisualizer(BaseVisualizer):
+    """Сохраняет результаты анализа в JSON-файл."""
     def __init__(self, filename: str = "crypto_report.json"):
         self.filename = filename
 
     def display(self, results: dict):
-        """Сохраняет результаты анализа в JSON-файл"""
         date = datetime.now()
 
         report = {
@@ -269,11 +280,11 @@ class JsonVisualizer(BaseVisualizer):
 
 
 class CsvVisualizer(BaseVisualizer):
+    """Сохраняет результаты анализа в CSV-файл."""
     def __init__(self, filename: str = "crypto_report.csv"):
         self.filename = filename
 
     def display(self, results: dict):
-        """Сохраняет результаты в CSV-файл"""
         categories = [
             (results["top_up"], "Gainer"),
             (results["top_down"], "Loser")
@@ -299,6 +310,13 @@ class CsvVisualizer(BaseVisualizer):
 
 
 def build_provider(source: str) -> CryptoProvider:
+    """
+    Фабричная функция для создания провайдера данных.
+
+    :param source: Источник данных ('coingecko' или 'coinmarketcap').
+    :return: Экземпляр провайдера.
+    :raises ValueError: Если передан неизвестный источник.
+    """
     if source == "coingecko":
         client = ApiClient(base_url="https://api.coingecko.com/api/v3/coins/markets")
         return GeckoProvider(client=client, parser=GeckoParser())
@@ -314,6 +332,13 @@ def build_provider(source: str) -> CryptoProvider:
 
 
 def build_visualizer(output: str) -> BaseVisualizer:
+    """
+    Фабричная функция для создания визуализатора.
+
+    :param output: Формат вывода ('console', 'json' или 'csv').
+    :return: Экземпляр визуализатора.
+    :raises ValueError: Если передан неизвестный формат.
+    """
     if output == "console":
         return ConsoleVisualizer()
     elif output == "json":
@@ -326,6 +351,13 @@ def build_visualizer(output: str) -> BaseVisualizer:
 
 @app.command()
 def main(source: str = "coingecko", output: str = "console", top: int = 3):
+    """
+    Точка входа CLI. Загружает данные, анализирует и отображает результаты.
+
+    :param source: Источник данных ('coingecko' или 'coinmarketcap').
+    :param output: Формат вывода ('console', 'json' или 'csv').
+    :param top: Количество лидеров роста и падения.
+    """
     provider = build_provider(source)
     visualizer = build_visualizer(output)
 
