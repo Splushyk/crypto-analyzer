@@ -8,6 +8,10 @@ from functools import wraps
 import logging
 from abc import abstractmethod, ABC
 import csv
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -85,6 +89,22 @@ class GeckoParser(BaseParser):
         ]
 
 
+class CMCParser(BaseParser):
+    def parse(self, raw_data: list) -> list[Cryptocurrency]:
+        return [
+            Cryptocurrency(
+                name=item.get("name"),
+                symbol=item.get("symbol"),
+                price=usd.get("price", 0),
+                change_24h=usd.get("percent_change_24h", 0),
+                volume=usd.get("volume_24h", 0),
+                market_cap=usd.get("market_cap", 0)
+            )
+            for item in raw_data
+            if (usd := item.get("quote", {}).get("USD", {}))
+        ]
+
+
 class ApiClient:
     def __init__(self, base_url: str, headers: dict | None = None):
         self.base_url = base_url
@@ -130,6 +150,45 @@ class GeckoProvider(CryptoProvider):
         # Менеджер дает команды курьеру и упаковщику
         raw_data = self.client.get_json(params=self.params)
         return self.parser.parse(raw_data)
+
+
+class CMCProvider(CryptoProvider):
+    def __init__(self):
+        # 1. Достаем ключ из переменных окружения
+        self.api_key = os.getenv("CMC_API_KEY")
+
+        # 2. Настраиваем адрес
+        self.url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest"
+
+        # 3. Готовим заголовки, которые требует CMC
+        headers = {
+            "X-CMC_PRO_API_KEY": self.api_key
+        }
+
+        # 4. Создаем "курьера" (ApiClient)
+        self.client = ApiClient(base_url=self.url, headers=headers)
+
+        # 5. Создаем "упаковщика" (CMCParser)
+        self.parser = CMCParser()
+
+    def get_coins(self) -> list[Cryptocurrency]:
+        # Параметры запроса: сколько монет и в какой валюте
+        params = {
+            "start": "1",
+            "limit": "50",
+            "convert": "USD"
+        }
+
+        raw_response = self.client.get_json(params=params)
+
+        # "Нормализуем" данные: CMC кладет список монет в ключ "data"
+        # Мы достаем этот список здесь, чтобы наш Parser получил просто list
+        coins_list = raw_response.get("data", [])
+
+        logger.info(f"Получено {len(coins_list)} монет от CoinMarketCap")
+
+        # Отдаем чистый список парсеру
+        return self.parser.parse(coins_list)
 
 
 class CryptoAnalyzer:
@@ -264,7 +323,7 @@ class CsvVisualizer(BaseVisualizer):
 try:
     with console.status("Загружаем данные..."):
         # Создаем одного провайдера (директора)
-        provider = GeckoProvider()
+        provider = CMCProvider()
 
         # Просим его дать готовые монеты.
         # Он сам внутри себя создаст ApiClient, скачает JSON и отдаст его в GeckoParser.
