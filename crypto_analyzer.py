@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 console = Console()
 
-url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=1"
 
 def retry(max_attempts, delay):
     """
@@ -68,6 +67,7 @@ class BaseParser(ABC):
         """Принимает сырой список словарей и возвращает список объектов Cryptocurrency"""
         pass
 
+
 class GeckoParser(BaseParser):
     def parse(self, raw_data: list) -> list[Cryptocurrency]:
         # Мы берем данные из словаря (item.get) и создаем объект нашего класса
@@ -103,6 +103,32 @@ class ApiClient:
         )
         response.raise_for_status()
         return response.json()
+
+
+class CryptoProvider(ABC):
+    @abstractmethod
+    def get_coins(self) -> list[Cryptocurrency]:
+        """Должен вернуть список объектов Cryptocurrency"""
+        pass
+
+
+class GeckoProvider(CryptoProvider):
+    def __init__(self):
+        # Вся конфигурация Gecko живет здесь
+        self.url = "https://api.coingecko.com/api/v3/coins/markets"
+        self.params = {
+            "vs_currency": "usd",
+            "order": "market_cap_desc",
+            "per_page": 50,
+            "page": 1
+        }
+        self.client = ApiClient(base_url=self.url)
+        self.parser = GeckoParser()
+
+    def get_coins(self) -> list[Cryptocurrency]:
+        # Менеджер дает команды курьеру и упаковщику
+        raw_data = self.client.get_json(params=self.params)
+        return self.parser.parse(raw_data)
 
 
 def get_top_coins(data, key, n=3, reverse=True):
@@ -222,15 +248,16 @@ top_up = top_down = max_val = total_cap = None
 
 try:
     with console.status("Загружаем данные..."):
-        client = ApiClient(base_url=url)
-        raw_coins = client.get_json()  # Получили словари
+        # Создаем одного провайдера (директора)
+        provider = GeckoProvider()
 
-        parser = GeckoParser()
-        coins = parser.parse(raw_coins)  # ПРЕВРАТИЛИ В ОБЪЕКТЫ
+        # Просим его дать готовые монеты.
+        # Он сам внутри себя создаст ApiClient, скачает JSON и отдаст его в GeckoParser.
+        coins = provider.get_coins()
 
     top_up, top_down, max_val, total_cap = analyze_data(coins)
     display_results(top_up, top_down, max_val, total_cap)
     save_report(top_up, top_down, max_val, total_cap)
 
-except requests.exceptions.RequestException as e:
-    logger.error(f"Не удалось загрузить данные: {e}")
+except Exception as e:  # Меняем на общий Exception, так как ошибка может быть и в сети, и в парсинге
+    logger.error(f"Произошла ошибка при работе с данными: {e}")
