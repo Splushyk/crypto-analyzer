@@ -164,6 +164,7 @@ class BaseVisualizer(ABC):
         """Метод для отображения результатов анализа"""
         pass
 
+
 class ConsoleVisualizer(BaseVisualizer):
     def __init__(self):
         self.console = Console()
@@ -192,44 +193,41 @@ class ConsoleVisualizer(BaseVisualizer):
         self.console.print(f"[bold white]Капитализация топ-50:[/bold white] ${total_cap:,.0f}")
 
 
-def save_report(top_up, top_down, max_volume, total_market_cap):
-    """
-    Сохраняет отчет в файл формата json.
+class JsonVisualizer(BaseVisualizer):
+    def __init__(self, filename: str = "crypto_report.json"):
+        self.filename = filename
 
-    :param top_up: Топ-3 лидера роста за 24 часа.
-    :param top_down: Топ-3 лидера падения за 24 часа.
-    :param max_volume: Монета с максимальным объёмом торгов.
-    :param total_market_cap: Суммарная капитализация всех 50 монет.
-    :return: None.
-    """
-    required_keys = ["name", "symbol", "price_change_percentage_24h"]
-    date = datetime.now()
+    def display(self, results: dict):
+        """Сохраняет результаты анализа в JSON-файл"""
+        date = datetime.now()
 
-    report = {
-        "generated_at": date.strftime("%Y-%m-%d %H-%M-%S"),
-        "total_market_cap_usd": total_market_cap,
-        "top_gainers": [
-            {"name": c.name, "symbol": c.symbol, "change_24h": c.change_24h}
-            for c in top_up
-        ],
-        "top_losers": [
-            {"name": c.name, "symbol": c.symbol, "change_24h": c.change_24h}
-            for c in top_down
-        ],
-        "highest_volume": {
-            "name": max_volume.name,
-            "symbol": max_volume.symbol,
-            "volume": max_volume.volume
+        report = {
+            "generated_at": date.strftime("%Y-%m-%d %H-%M-%S"),
+            "total_market_cap_usd": results["total_market_cap"],
+            "top_gainers": [
+                {"name": c.name, "symbol": c.symbol, "change_24h": c.change_24h}
+                for c in results["top_up"]
+            ],
+            "top_losers": [
+                {"name": c.name, "symbol": c.symbol, "change_24h": c.change_24h}
+                for c in results["top_down"]
+            ],
+            "highest_volume": {
+                "name": results["max_volume"].name,
+                "symbol": results["max_volume"].symbol,
+                "volume": results["max_volume"].volume
+            }
         }
-    }
 
-    with open("crypto_report.json", "w", encoding="utf-8") as file:
-        json.dump(
-            report,
-            file,
-            indent=4,
-            ensure_ascii=False
-        )
+        with open("crypto_report.json", "w", encoding="utf-8") as file:
+            json.dump(
+                report,
+                file,
+                indent=4,
+                ensure_ascii=False
+            )
+
+        logger.info(f"Отчет успешно сохранен в файл: {self.filename}")
 
 
 top_up = top_down = max_val = total_cap = None
@@ -247,15 +245,13 @@ try:
         # Сохраняем словарь в переменную results
         results = analyzer.analyze_data()
 
-    visualizer = ConsoleVisualizer()
-    visualizer.display(results)
+    outputs = [
+        ConsoleVisualizer(),
+        JsonVisualizer()
+    ]
 
-    save_report(
-        results["top_up"],
-        results["top_down"],
-        results["max_volume"],
-        results["total_market_cap"]
-    )
+    for out in outputs:
+        out.display(results)
 
 except Exception as e:  # Меняем на общий Exception, так как ошибка может быть и в сети, и в парсинге
     logger.error(f"Произошла ошибка при работе с данными: {e}")
