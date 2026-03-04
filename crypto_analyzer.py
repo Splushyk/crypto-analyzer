@@ -131,41 +131,31 @@ class GeckoProvider(CryptoProvider):
         return self.parser.parse(raw_data)
 
 
-def get_top_coins(data, key, n=3, reverse=True):
-    """
-    Возвращает список из n монет, отсортированных по заданному ключу.
+class CryptoAnalyzer:
+    def __init__(self, data: list[Cryptocurrency]):
+        self.data = data
 
-    :param data: Список словарей с данными о монетах.
-    :param key: Ключ, по которому происходит сортировка.
-    :param n: Количество монет в результате. По умолчанию 3.
-    :param reverse: Порядок сортировки. True — по убыванию, False — по возрастанию.
-    :return: Список из n словарей.
-    """
-    return sorted(
-        data,
-        key=lambda x: getattr(x, key) or 0,
-        reverse=reverse
-    )[:n]
+    def get_top_coins(self, attr: str, n: int = 3, reverse: bool = True):
+        """Внутренний метод для сортировки объектов по любому атрибуту"""
+        return sorted(
+            self.data,
+            key=lambda x: getattr(x, attr) or 0,
+            reverse=reverse
+        )[:n]
 
+    def analyze_data(self):
+        """Основной метод, который возвращает словарь со всеми расчетами"""
+        top_up = self.get_top_coins("change_24h")
+        top_down = self.get_top_coins("change_24h", reverse=False)
+        max_volume = self.get_top_coins("volume", n=1)[0]
+        total_market_cap = sum(coin.market_cap for coin in self.data)
 
-def analyze_data(data):
-    """
-    Анализирует список словарей монет.
-
-    :param data: Список словарей с данными о монетах.
-    :return: Кортеж из найденных целевых данных:
-        top_up - топ-3 лидера роста за 24 часа,
-        top_down - топ-3 лидера падения за 24 часа,
-        max_volume - монета с максимальным объёмом торгов,
-        total_market_cap - суммарная капитализация всех 50 монет.
-    """
-    top_up = get_top_coins(data, "change_24h")
-    top_down = get_top_coins(data, "change_24h", reverse=False)
-
-    max_volume_coin = get_top_coins(data, "volume", n=1)[0]
-    total_market_cap = sum(coin.market_cap for coin in data)
-
-    return top_up, top_down, max_volume_coin, total_market_cap
+        return {
+            "top_up": top_up,
+            "top_down": top_down,
+            "max_volume": max_volume,
+            "total_market_cap": total_market_cap
+        }
 
 
 def display_results(
@@ -255,9 +245,23 @@ try:
         # Он сам внутри себя создаст ApiClient, скачает JSON и отдаст его в GeckoParser.
         coins = provider.get_coins()
 
-    top_up, top_down, max_val, total_cap = analyze_data(coins)
-    display_results(top_up, top_down, max_val, total_cap)
-    save_report(top_up, top_down, max_val, total_cap)
+        analyzer = CryptoAnalyzer(coins)
+        # Сохраняем словарь в переменную results
+        results = analyzer.analyze_data()
+
+        # Достаем данные из results по ключам
+    display_results(
+        results["top_up"],
+        results["top_down"],
+        results["max_volume"],
+        results["total_market_cap"]
+    )
+    save_report(
+        results["top_up"],
+        results["top_down"],
+        results["max_volume"],
+        results["total_market_cap"]
+    )
 
 except Exception as e:  # Меняем на общий Exception, так как ошибка может быть и в сети, и в парсинге
     logger.error(f"Произошла ошибка при работе с данными: {e}")
