@@ -7,6 +7,7 @@ import json
 from functools import wraps
 import logging
 from abc import abstractmethod, ABC
+import csv
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -227,7 +228,37 @@ class JsonVisualizer(BaseVisualizer):
                 ensure_ascii=False
             )
 
-        logger.info(f"Отчет успешно сохранен в файл: {self.filename}")
+        logger.info(f"Отчет успешно сохранен в JSON-файл: {self.filename}")
+
+
+class CsvVisualizer(BaseVisualizer):
+    def __init__(self, filename: str = "crypto_report.csv"):
+        self.filename = filename
+
+    def display(self, results: dict):
+        """Сохраняет результаты в CSV-файл"""
+        categories = [
+            (results["top_up"], "Gainer"),
+            (results["top_down"], "Loser")
+        ]
+
+        with open(self.filename, mode="w", newline="", encoding="utf-8") as file:
+            writer = csv.writer(file)
+            # Записываем шапку
+            writer.writerow(["Name", "Symbol", "Type", "Price", "Change 24h", "Market Cap"])
+
+            for coins_list, category_name in categories:
+                for coin in coins_list:
+                    writer.writerow([
+                        coin.name,
+                        coin.symbol,
+                        category_name,
+                        f"{coin.price:.2f}",
+                        f"{coin.change_24h:.2f}",
+                        f"{coin.market_cap:.0f}"
+                    ])
+
+        logger.info(f"Отчет успешно сохранен в CSV-файл: {self.filename}")
 
 
 top_up = top_down = max_val = total_cap = None
@@ -247,7 +278,8 @@ try:
 
     outputs = [
         ConsoleVisualizer(),
-        JsonVisualizer(filename="crypto_report.json")
+        JsonVisualizer(filename="crypto_report.json"),
+        CsvVisualizer(filename="crypto_report.csv")
     ]
 
     for out in outputs:
