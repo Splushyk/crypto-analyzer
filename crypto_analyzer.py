@@ -219,7 +219,7 @@ class JsonVisualizer(BaseVisualizer):
             }
         }
 
-        with open("crypto_report.json", "w", encoding="utf-8") as file:
+        with open(self.filename, "w", encoding="utf-8") as file:
             json.dump(
                 report,
                 file,
@@ -247,7 +247,7 @@ try:
 
     outputs = [
         ConsoleVisualizer(),
-        JsonVisualizer()
+        JsonVisualizer(filename="crypto_report.json")
     ]
 
     for out in outputs:
