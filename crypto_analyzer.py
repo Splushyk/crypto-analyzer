@@ -62,17 +62,22 @@ class Cryptocurrency:
 
 
 class ApiClient:
-    def __init__(self, base_url: str, api_key: str | None = None):
+    def __init__(self, base_url: str, headers: dict | None = None):
         self.base_url = base_url
-        self.api_key = api_key
+        # Если заголовки не переданы, используем пустой словарь
+        self.headers = headers or {}
+        # Добавляем стандартный заголовок, если его нет
+        if "Accepts" not in self.headers:
+            self.headers["Accepts"] = "application/json"
 
     @retry(max_attempts=3, delay=2)
     def get_json(self, endpoint: str = "", params: dict | None = None):
-        headers = {"Accepts": "application/json"}
-        if self.api_key:
-            headers["X-CMC_PRO_API_KEY"] = self.api_key
-
-        response = requests.get(f"{self.base_url}{endpoint}", headers=headers, params=params, timeout=10)
+        response = requests.get(
+            f"{self.base_url}{endpoint}",
+            headers=self.headers,
+            params=params,
+            timeout=10
+        )
         response.raise_for_status()
         return response.json()
 
