@@ -158,40 +158,38 @@ class CryptoAnalyzer:
         }
 
 
-def display_results(
-        top_up,
-        top_down,
-        max_volume,
-        total_market_cap
-):
-    """
-    Выводит результаты в красивом виде на экран.
+class BaseVisualizer(ABC):
+    @abstractmethod
+    def display(self, results: dict):
+        """Метод для отображения результатов анализа"""
+        pass
 
-    :param top_up: Топ-3 лидера роста за 24 часа.
-    :param top_down: Топ-3 лидера падения за 24 часа.
-    :param max_volume: Монета с максимальным объёмом торгов.
-    :param total_market_cap: Суммарная капитализация всех 50 монет.
-    :return: None.
-    """
-    table_up = Table(title="Топ монеты (рост)")
-    table_up.add_column("Название", style="cyan")
-    table_up.add_column("Рост", style="green")
-    for coin in top_up:
-        table_up.add_row(coin.name, f"+{coin.change_24h:.2f}%")
+class ConsoleVisualizer(BaseVisualizer):
+    def __init__(self):
+        self.console = Console()
 
-    console.print(table_up)
+    def display(self, results: dict):
+        # 1. Таблица лидеров роста
+        table_up = Table(title="Топ монеты (рост)")
+        table_up.add_column("Название", style="cyan")
+        table_up.add_column("Рост", style="green")
+        for coin in results["top_up"]:
+            table_up.add_row(coin.name, f"+{coin.change_24h:.2f}%")
+        self.console.print(table_up)
 
-    table_down = Table(title="Топ монеты (падение)")
-    table_down.add_column("Название", style="cyan")
-    table_down.add_column("Падение", style="red")
-    for coin in top_down:
-        table_down.add_row(coin.name, f"{coin.change_24h:.2f}%")
+        # 2. Таблица лидеров падения
+        table_down = Table(title="Топ монеты (падение)")
+        table_down.add_column("Название", style="cyan")
+        table_down.add_column("Падение", style="red")
+        for coin in results["top_down"]:
+            table_down.add_row(coin.name, f"{coin.change_24h:.2f}%")
+        self.console.print(table_down)
 
-    console.print(table_down)
-
-    console.print(
-        f"\n[bold white]Монета с максимальным объёмом:[/bold white] {max_volume.name} — ${max_volume.volume:,.0f}")
-    console.print(f"[bold white]Суммарная капитализация топ-50:[/bold white] ${total_market_cap:,.0f}")
+        # 3. Общая информация
+        max_vol = results["max_volume"]
+        total_cap = results["total_market_cap"]
+        self.console.print(f"\n[bold white]Макс. объём:[/bold white] {max_vol.name} — ${max_vol.volume:,.0f}")
+        self.console.print(f"[bold white]Капитализация топ-50:[/bold white] ${total_cap:,.0f}")
 
 
 def save_report(top_up, top_down, max_volume, total_market_cap):
@@ -249,13 +247,9 @@ try:
         # Сохраняем словарь в переменную results
         results = analyzer.analyze_data()
 
-        # Достаем данные из results по ключам
-    display_results(
-        results["top_up"],
-        results["top_down"],
-        results["max_volume"],
-        results["total_market_cap"]
-    )
+    visualizer = ConsoleVisualizer()
+    visualizer.display(results)
+
     save_report(
         results["top_up"],
         results["top_down"],
