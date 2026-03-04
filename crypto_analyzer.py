@@ -10,8 +10,11 @@ from abc import abstractmethod, ABC
 import csv
 import os
 from dotenv import load_dotenv
+import typer
 
 load_dotenv()
+
+app = typer.Typer()
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -203,10 +206,10 @@ class CryptoAnalyzer:
             reverse=reverse
         )[:n]
 
-    def analyze_data(self):
+    def analyze_data(self, top: int = 3):
         """Основной метод, который возвращает словарь со всеми расчетами"""
-        top_up = self.get_top_coins("change_24h")
-        top_down = self.get_top_coins("change_24h", reverse=False)
+        top_up = self.get_top_coins("change_24h", n=top)
+        top_down = self.get_top_coins("change_24h", n=top, reverse=False)
         max_volume = self.get_top_coins("volume", n=1)[0]
         total_market_cap = sum(coin.market_cap for coin in self.data)
 
@@ -320,27 +323,33 @@ class CsvVisualizer(BaseVisualizer):
         logger.info(f"Отчет успешно сохранен в CSV-файл: {self.filename}")
 
 
-try:
-    with console.status("Загружаем данные..."):
-        # Создаем одного провайдера (директора)
+@app.command()
+def main(source: str = "coingecko", output: str = "console", top: int = 3):
+    provider: CryptoProvider
+    if source == "coingecko":
+        provider = GeckoProvider()
+    elif source == "coinmarketcap":
         provider = CMCProvider()
+    else:
+        raise ValueError("Выбор возможен между coingecko и coinmarketcap")
 
-        # Просим его дать готовые монеты.
-        # Он сам внутри себя создаст ApiClient, скачает JSON и отдаст его в GeckoParser.
+    visualizer: BaseVisualizer
+    if output == "console":
+        visualizer = ConsoleVisualizer()
+    elif output == "json":
+        visualizer = JsonVisualizer(filename="crypto_report.json")
+    elif output == "csv":
+        visualizer = CsvVisualizer(filename="crypto_report.csv")
+    else:
+        raise ValueError("Вывод информации возможен следующими способами: console, json и csv")
+
+    try:
         coins = provider.get_coins()
-
         analyzer = CryptoAnalyzer(coins)
-        # Сохраняем словарь в переменную results
-        results = analyzer.analyze_data()
+        results = analyzer.analyze_data(top)
+        visualizer.display(results)
+    except Exception as e:
+        logger.error(f"Произошла ошибка при работе с данными: {e}")
 
-    outputs = [
-        ConsoleVisualizer(),
-        JsonVisualizer(filename="crypto_report.json"),
-        CsvVisualizer(filename="crypto_report.csv")
-    ]
-
-    for out in outputs:
-        out.display(results)
-
-except Exception as e:  # Меняем на общий Exception, так как ошибка может быть и в сети, и в парсинге
-    logger.error(f"Произошла ошибка при работе с данными: {e}")
+if __name__ == "__main__":
+    app()
