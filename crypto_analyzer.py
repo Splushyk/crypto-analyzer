@@ -6,6 +6,7 @@ from datetime import datetime
 import json
 from functools import wraps
 import logging
+from abc import abstractmethod, ABC
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -61,6 +62,28 @@ class Cryptocurrency:
         return self.change_24h < other.change_24h
 
 
+class BaseParser(ABC):
+    @abstractmethod
+    def parse(self, raw_data: list) -> list[Cryptocurrency]:
+        """Принимает сырой список словарей и возвращает список объектов Cryptocurrency"""
+        pass
+
+class GeckoParser(BaseParser):
+    def parse(self, raw_data: list) -> list[Cryptocurrency]:
+        # Мы берем данные из словаря (item.get) и создаем объект нашего класса
+        return [
+            Cryptocurrency(
+                name=item.get("name"),
+                symbol=item.get("symbol"),
+                price=item.get("current_price"),
+                change_24h=item.get("price_change_percentage_24h"),
+                volume=item.get("total_volume"),
+                market_cap=item.get("market_cap")
+            )
+            for item in raw_data
+        ]
+
+
 class ApiClient:
     def __init__(self, base_url: str, headers: dict | None = None):
         self.base_url = base_url
@@ -94,7 +117,7 @@ def get_top_coins(data, key, n=3, reverse=True):
     """
     return sorted(
         data,
-        key=lambda x: x.get(key) or 0,
+        key=lambda x: getattr(x, key) or 0,
         reverse=reverse
     )[:n]
 
@@ -110,16 +133,13 @@ def analyze_data(data):
         max_volume - монета с максимальным объёмом торгов,
         total_market_cap - суммарная капитализация всех 50 монет.
     """
-    top_price_change = [coin for coin in data
-                        if coin["price_change_percentage_24h"] is not None]
+    top_up = get_top_coins(data, "change_24h")
+    top_down = get_top_coins(data, "change_24h", reverse=False)
 
-    top_up = get_top_coins(top_price_change, "price_change_percentage_24h")
-    top_down = get_top_coins(top_price_change, "price_change_percentage_24h", reverse=False)
+    max_volume_coin = get_top_coins(data, "volume", n=1)[0]
+    total_market_cap = sum(coin.market_cap for coin in data)
 
-    max_volume = get_top_coins(data, "total_volume", n=1)[0]
-    total_market_cap = sum(coin.get("market_cap") or 0 for coin in data)
-
-    return top_up, top_down, max_volume, total_market_cap
+    return top_up, top_down, max_volume_coin, total_market_cap
 
 
 def display_results(
@@ -141,7 +161,7 @@ def display_results(
     table_up.add_column("Название", style="cyan")
     table_up.add_column("Рост", style="green")
     for coin in top_up:
-        table_up.add_row(coin["name"], f"+{coin["price_change_percentage_24h"]}")
+        table_up.add_row(coin.name, f"+{coin.change_24h:.2f}%")
 
     console.print(table_up)
 
@@ -149,12 +169,12 @@ def display_results(
     table_down.add_column("Название", style="cyan")
     table_down.add_column("Падение", style="red")
     for coin in top_down:
-        table_down.add_row(coin["name"], f"{coin["price_change_percentage_24h"]}")
+        table_down.add_row(coin.name, f"{coin.change_24h:.2f}%")
 
     console.print(table_down)
 
     console.print(
-        f"\n[bold white]Монета с максимальным объёмом:[/bold white] {max_volume["name"]} — ${max_volume["total_volume"]:,.0f}")
+        f"\n[bold white]Монета с максимальным объёмом:[/bold white] {max_volume.name} — ${max_volume.volume:,.0f}")
     console.print(f"[bold white]Суммарная капитализация топ-50:[/bold white] ${total_market_cap:,.0f}")
 
 
@@ -173,20 +193,20 @@ def save_report(top_up, top_down, max_volume, total_market_cap):
 
     report = {
         "generated_at": date.strftime("%Y-%m-%d %H-%M-%S"),
-        "total_coins_analyzed": 50,
         "total_market_cap_usd": total_market_cap,
         "top_gainers": [
-            {key: value for key, value in coin.items()
-             if key in required_keys}
-            for coin in top_up
+            {"name": c.name, "symbol": c.symbol, "change_24h": c.change_24h}
+            for c in top_up
         ],
         "top_losers": [
-            {key: value for key, value in coin.items()
-             if key in required_keys}
-            for coin in top_down
+            {"name": c.name, "symbol": c.symbol, "change_24h": c.change_24h}
+            for c in top_down
         ],
-        "highest_volume": {key: value for key, value in max_volume.items() if
-                           key in ["name", "symbol", "total_volume"]}
+        "highest_volume": {
+            "name": max_volume.name,
+            "symbol": max_volume.symbol,
+            "volume": max_volume.volume
+        }
     }
 
     with open("crypto_report.json", "w", encoding="utf-8") as file:
@@ -203,7 +223,10 @@ top_up = top_down = max_val = total_cap = None
 try:
     with console.status("Загружаем данные..."):
         client = ApiClient(base_url=url)
-        coins = client.get_json()
+        raw_coins = client.get_json()  # Получили словари
+
+        parser = GeckoParser()
+        coins = parser.parse(raw_coins)  # ПРЕВРАТИЛИ В ОБЪЕКТЫ
 
     top_up, top_down, max_val, total_cap = analyze_data(coins)
     display_results(top_up, top_down, max_val, total_cap)
