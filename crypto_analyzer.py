@@ -15,6 +15,24 @@ console = Console()
 url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=1"
 
 
+class Cryptocurrency:
+    def __init__(self, name: str, symbol: str, price: float, change_24h: float, volume: float, market_cap: float):
+        self.name = name
+        self.symbol = symbol.upper()
+        self.price = price or 0.0
+        self.change_24h = change_24h or 0.0  # Защита от None
+        self.volume = volume or 0.0
+        self.market_cap = market_cap or 0.0
+
+    def __str__(self):
+        return f"{self.name} ({self.symbol}): ${self.price:,.2f} ({self.change_24h:+.2f}%)"
+
+    def __lt__(self, other):
+        if not isinstance(other, Cryptocurrency):
+            return NotImplemented
+        return self.change_24h < other.change_24h
+
+
 def retry(max_attempts, delay):
     """
     Декоратор, который оборачивает функцию логикой повторных попыток.
@@ -23,6 +41,7 @@ def retry(max_attempts, delay):
     :param delay: Время ожидания в секундах между попытками.
     :return: Результат выполнения оборачиваемой функции.
     """
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
