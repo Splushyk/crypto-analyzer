@@ -261,8 +261,6 @@ class CsvVisualizer(BaseVisualizer):
         logger.info(f"Отчет успешно сохранен в CSV-файл: {self.filename}")
 
 
-top_up = top_down = max_val = total_cap = None
-
 try:
     with console.status("Загружаем данные..."):
         # Создаем одного провайдера (директора)
