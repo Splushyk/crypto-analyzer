@@ -137,60 +137,35 @@ class CryptoProvider(ABC):
 
 
 class GeckoProvider(CryptoProvider):
-    def __init__(self):
-        # Вся конфигурация Gecko живет здесь
-        self.url = "https://api.coingecko.com/api/v3/coins/markets"
+    def __init__(self, client: ApiClient, parser: BaseParser):
         self.params = {
             "vs_currency": "usd",
             "order": "market_cap_desc",
             "per_page": 50,
             "page": 1
         }
-        self.client = ApiClient(base_url=self.url)
-        self.parser = GeckoParser()
+        self.client = client
+        self.parser = parser
 
     def get_coins(self) -> list[Cryptocurrency]:
-        # Менеджер дает команды курьеру и упаковщику
         raw_data = self.client.get_json(params=self.params)
         return self.parser.parse(raw_data)
 
 
 class CMCProvider(CryptoProvider):
-    def __init__(self):
-        # 1. Достаем ключ из переменных окружения
-        self.api_key = os.getenv("CMC_API_KEY")
-
-        # 2. Настраиваем адрес
-        self.url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest"
-
-        # 3. Готовим заголовки, которые требует CMC
-        headers = {
-            "X-CMC_PRO_API_KEY": self.api_key
-        }
-
-        # 4. Создаем "курьера" (ApiClient)
-        self.client = ApiClient(base_url=self.url, headers=headers)
-
-        # 5. Создаем "упаковщика" (CMCParser)
-        self.parser = CMCParser()
+    def __init__(self, client: ApiClient, parser: BaseParser):
+        self.client = client
+        self.parser = parser
 
     def get_coins(self) -> list[Cryptocurrency]:
-        # Параметры запроса: сколько монет и в какой валюте
         params = {
             "start": "1",
             "limit": "50",
             "convert": "USD"
         }
-
         raw_response = self.client.get_json(params=params)
-
-        # "Нормализуем" данные: CMC кладет список монет в ключ "data"
-        # Мы достаем этот список здесь, чтобы наш Parser получил просто list
         coins_list = raw_response.get("data", [])
-
         logger.info(f"Получено {len(coins_list)} монет от CoinMarketCap")
-
-        # Отдаем чистый список парсеру
         return self.parser.parse(coins_list)
 
 
@@ -323,33 +298,46 @@ class CsvVisualizer(BaseVisualizer):
         logger.info(f"Отчет успешно сохранен в CSV-файл: {self.filename}")
 
 
-@app.command()
-def main(source: str = "coingecko", output: str = "console", top: int = 3):
-    provider: CryptoProvider
+def build_provider(source: str) -> CryptoProvider:
     if source == "coingecko":
-        provider = GeckoProvider()
+        client = ApiClient(base_url="https://api.coingecko.com/api/v3/coins/markets")
+        return GeckoProvider(client=client, parser=GeckoParser())
     elif source == "coinmarketcap":
-        provider = CMCProvider()
+        api_key = os.getenv("CMC_API_KEY")
+        client = ApiClient(
+            base_url="https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest",
+            headers={"X-CMC_PRO_API_KEY": api_key}
+        )
+        return CMCProvider(client=client, parser=CMCParser())
     else:
         raise ValueError("Выбор возможен между coingecko и coinmarketcap")
 
-    visualizer: BaseVisualizer
+
+def build_visualizer(output: str) -> BaseVisualizer:
     if output == "console":
-        visualizer = ConsoleVisualizer()
+        return ConsoleVisualizer()
     elif output == "json":
-        visualizer = JsonVisualizer(filename="crypto_report.json")
+        return JsonVisualizer(filename="crypto_report.json")
     elif output == "csv":
-        visualizer = CsvVisualizer(filename="crypto_report.csv")
+        return CsvVisualizer(filename="crypto_report.csv")
     else:
         raise ValueError("Вывод информации возможен следующими способами: console, json и csv")
 
+
+@app.command()
+def main(source: str = "coingecko", output: str = "console", top: int = 3):
+    provider = build_provider(source)
+    visualizer = build_visualizer(output)
+
     try:
-        coins = provider.get_coins()
+        with console.status("Загружаем данные..."):
+            coins = provider.get_coins()
         analyzer = CryptoAnalyzer(coins)
         results = analyzer.analyze_data(top)
         visualizer.display(results)
     except Exception as e:
         logger.error(f"Произошла ошибка при работе с данными: {e}")
+
 
 if __name__ == "__main__":
     app()
