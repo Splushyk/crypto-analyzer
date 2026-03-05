@@ -4,6 +4,7 @@ import logging
 import os
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from datetime import datetime
 from functools import wraps
 import requests
@@ -324,6 +325,27 @@ class CsvVisualizer(BaseVisualizer):
         logger.info(f"Отчет успешно сохранен в CSV-файл: {self.filename}")
 
 
+PROVIDERS: dict[str, Callable[[], CryptoProvider]] = {
+    "coingecko": lambda: GeckoProvider(
+        client=ApiClient(base_url="https://api.coingecko.com/api/v3/coins/markets"),
+        parser=GeckoParser()
+    ),
+    "coinmarketcap": lambda: CMCProvider(
+        client=ApiClient(
+            base_url="https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest",
+            headers={"X-CMC_PRO_API_KEY": os.getenv("CMC_API_KEY")}
+        ),
+        parser=CMCParser()
+    ),
+}
+
+VISUALIZERS: dict[str, Callable[[], BaseVisualizer]] = {
+    "console": lambda: ConsoleVisualizer(),
+    "json": lambda: JsonVisualizer(filename="crypto_report.json"),
+    "csv": lambda: CsvVisualizer(filename="crypto_report.csv"),
+}
+
+
 def build_provider(source: str) -> CryptoProvider:
     """
     Фабричная функция для создания провайдера данных.
@@ -332,18 +354,9 @@ def build_provider(source: str) -> CryptoProvider:
     :return: Экземпляр провайдера.
     :raises ValueError: Если передан неизвестный источник.
     """
-    if source == "coingecko":
-        client = ApiClient(base_url="https://api.coingecko.com/api/v3/coins/markets")
-        return GeckoProvider(client=client, parser=GeckoParser())
-    elif source == "coinmarketcap":
-        api_key = os.getenv("CMC_API_KEY")
-        client = ApiClient(
-            base_url="https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest",
-            headers={"X-CMC_PRO_API_KEY": api_key}
-        )
-        return CMCProvider(client=client, parser=CMCParser())
-    else:
-        raise ValueError("Выбор возможен между coingecko и coinmarketcap")
+    if source not in PROVIDERS:
+        raise ValueError(f"Выбор возможен между: {', '.join(PROVIDERS)}")
+    return PROVIDERS[source]()
 
 
 def build_visualizer(output: str) -> BaseVisualizer:
@@ -354,15 +367,9 @@ def build_visualizer(output: str) -> BaseVisualizer:
     :return: Экземпляр визуализатора.
     :raises ValueError: Если передан неизвестный формат.
     """
-    if output == "console":
-        return ConsoleVisualizer()
-    elif output == "json":
-        return JsonVisualizer(filename="crypto_report.json")
-    elif output == "csv":
-        return CsvVisualizer(filename="crypto_report.csv")
-    else:
-        raise ValueError("Вывод информации возможен следующими способами: console, json и csv")
-
+    if output not in VISUALIZERS:
+        raise ValueError(f"Вывод возможен в форматах: {', '.join(VISUALIZERS)}")
+    return VISUALIZERS[output]()
 
 @app.command()
 def main(
