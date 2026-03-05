@@ -163,7 +163,9 @@ class GeckoProvider(CryptoProvider):
 
     def get_coins(self) -> list[Cryptocurrency]:
         raw_data = self.client.get_json(params=self.params)
-        return self.parser.parse(raw_data)
+        coins = self.parser.parse(raw_data)
+        logger.info(f"Получено {len(coins)} монет от CoinGecko")
+        return coins
 
 
 class CMCProvider(CryptoProvider):
