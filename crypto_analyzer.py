@@ -363,13 +363,13 @@ def build_visualizer(output: str) -> BaseVisualizer:
 
 
 @app.command()
-def main(source: str = "coingecko", output: str = "console", top: int = 3):
+def main(
+    source: str = typer.Option("coingecko", help="Источник данных: coingecko или coinmarketcap"),
+    output: str = typer.Option("console", help="Формат вывода: console, json или csv"),
+    top: int = typer.Option(3, help="Количество лидеров роста и падения")
+):
     """
     Точка входа CLI. Загружает данные, анализирует и отображает результаты.
-
-    :param source: Источник данных ('coingecko' или 'coinmarketcap').
-    :param output: Формат вывода ('console', 'json' или 'csv').
-    :param top: Количество лидеров роста и падения.
     """
     provider = build_provider(source)
     visualizer = build_visualizer(output)
