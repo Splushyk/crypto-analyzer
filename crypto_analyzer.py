@@ -89,10 +89,10 @@ class GeckoParser(BaseParser):
             Cryptocurrency(
                 name=item.get("name"),
                 symbol=item.get("symbol"),
-                price=item.get("current_price"),
-                change_24h=item.get("price_change_percentage_24h"),
-                volume=item.get("total_volume"),
-                market_cap=item.get("market_cap")
+                price=item.get("current_price", 0),
+                change_24h=item.get("price_change_percentage_24h", 0),
+                volume=item.get("total_volume", 0),
+                market_cap=item.get("market_cap", 0)
             )
             for item in raw_data
         ]
