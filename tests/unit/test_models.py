@@ -4,21 +4,13 @@ import pytest
 from src.models import Cryptocurrency
 
 
-def test_cryptocurrency_model_creation():
-    coin = Cryptocurrency(
-        name="SomeCoin",
-        symbol="SC",
-        price=10.12345,
-        change_24h=8.12345,
-        volume=555.12345,
-        market_cap=777.12345
-    )
-    assert coin.name == "SomeCoin"
-    assert coin.symbol == "SC"
-    assert coin.price == 10.12345
-    assert coin.change_24h == 8.12345
-    assert coin.volume == 555.12345
-    assert coin.market_cap == 777.12345
+def test_cryptocurrency_model_creation(sample_coin):
+    assert sample_coin.name == "SomeCoin"
+    assert sample_coin.symbol == "SC"
+    assert sample_coin.price == 10.12345
+    assert sample_coin.change_24h == 8.12345
+    assert sample_coin.volume == 555.12345
+    assert sample_coin.market_cap == 777.12345
 
 
 @pytest.mark.parametrize("overrides, attr, expected", [
