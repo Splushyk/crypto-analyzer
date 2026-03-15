@@ -47,11 +47,12 @@ class ApiClient:
 
     @retry(max_attempts=3, delay=2)
     def get_json(self, endpoint: str = "", params: dict | None = None):
-        response = requests.get(
-            f"{self.base_url}{endpoint}",
-            headers=self.headers,
-            params=params,
-            timeout=10
-        )
+        with requests.Session() as session:
+            response = session.get(
+                f"{self.base_url}{endpoint}",
+                headers=self.headers,
+                params=params,
+                timeout=10
+            )
         response.raise_for_status()
         return response.json()
