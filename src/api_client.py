@@ -42,8 +42,8 @@ class ApiClient:
     def __init__(self, base_url: str, headers: dict | None = None):
         self.base_url = base_url
         self.headers = headers or {}
-        if "Accepts" not in self.headers:
-            self.headers["Accepts"] = "application/json"
+        if "Accept" not in self.headers:
+            self.headers["Accept"] = "application/json"
 
     @retry(max_attempts=3, delay=2)
     def get_json(self, endpoint: str = "", params: dict | None = None):
