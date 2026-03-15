@@ -1,0 +1,25 @@
+import pytest
+
+from src.analyzer import CryptoAnalyzer
+from src.models import Cryptocurrency
+
+
+def test_analyze_data():
+    coins = [
+        Cryptocurrency("Coin1", "C1", 10.0, 1.0, 100.0, 10.0),
+        Cryptocurrency("Coin2", "C2", 10.0, 2.0, 200.0, 20.0),
+        Cryptocurrency("Coin3", "C3", 10.0, 3.0, 300.0, 30.0)
+    ]
+    analyzer = CryptoAnalyzer(coins)
+    result = analyzer.analyze_data()
+
+    assert [c.name for c in result["top_up"]] == ["Coin3", "Coin2", "Coin1"]
+    assert [c.name for c in result["top_down"]] == ["Coin1", "Coin2", "Coin3"]
+    assert result["max_volume"].name == "Coin3"
+    assert result["total_market_cap"] == 60
+
+
+def test_analyze_data_empty():
+    analyzer = CryptoAnalyzer([])
+    with pytest.raises(IndexError):
+        analyzer.analyze_data()
