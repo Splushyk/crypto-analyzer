@@ -72,7 +72,7 @@ def build_visualizer(output: str) -> BaseVisualizer:
 def main(
     source: str = typer.Option("coingecko", help="Источник данных: coingecko или coinmarketcap"),
     output: str = typer.Option("console", help="Формат вывода: console, json или csv"),
-    top: int = typer.Option(3, help="Количество лидеров роста и падения")
+    top: int = typer.Option(3, min=1, max=50, help="Количество лидеров роста и падения (от 1 до 50)")
 ):
     """
     Точка входа CLI. Загружает данные, анализирует и отображает результаты.
