@@ -1,3 +1,13 @@
+"""
+Точка входа в приложение и координация рабочих процессов.
+
+Модуль отвечает за:
+1. Конфигурацию CLI-интерфейса (на базе Typer).
+2. Инициализацию компонентов через фабричные методы (Providers, Visualizers).
+3. Управление основным циклом программы: получение данных -> анализ -> вывод.
+4. Централизованную обработку исключений и логирование ошибок.
+"""
+
 import logging
 import os
 from collections.abc import Callable
@@ -70,9 +80,9 @@ def build_visualizer(output: str) -> BaseVisualizer:
 
 @app.command()
 def main(
-    source: str = typer.Option("coingecko", help="Источник данных: coingecko или coinmarketcap"),
-    output: str = typer.Option("console", help="Формат вывода: console, json или csv"),
-    top: int = typer.Option(3, min=1, max=50, help="Количество лидеров роста и падения (от 1 до 50)")
+        source: str = typer.Option("coingecko", help="Источник данных: coingecko или coinmarketcap"),
+        output: str = typer.Option("console", help="Формат вывода: console, json или csv"),
+        top: int = typer.Option(3, min=1, max=50, help="Количество лидеров роста и падения (от 1 до 50)")
 ):
     """
     Точка входа CLI. Загружает данные, анализирует и отображает результаты.
