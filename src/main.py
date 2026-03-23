@@ -3,8 +3,8 @@
 
 Модуль отвечает за:
 1. Конфигурацию CLI-интерфейса (на базе Typer).
-2. Инициализацию компонентов через фабричные методы (Providers, Visualizers).
-3. Управление основным циклом программы: получение данных -> анализ -> вывод.
+2. Инициализацию компонентов через фабричные методы (Providers, Visualizers, Storages).
+3. Управление основным циклом программы: получение данных -> анализ -> вывод -> сохранение.
 4. Централизованную обработку исключений и логирование ошибок.
 """
 
@@ -20,6 +20,7 @@ from src.api_client import ApiClient
 from src.analyzer import CryptoAnalyzer
 from src.parsers import GeckoParser, CMCParser
 from src.providers import CryptoProvider, GeckoProvider, CMCProvider
+from src.storage import BaseStorage, JsonStorage
 from src.visualizers import BaseVisualizer, ConsoleVisualizer, JsonVisualizer, CsvVisualizer
 
 load_dotenv()
@@ -47,8 +48,12 @@ PROVIDERS: dict[str, Callable[[], CryptoProvider]] = {
 
 VISUALIZERS: dict[str, Callable[[], BaseVisualizer]] = {
     "console": lambda: ConsoleVisualizer(),
-    "json": lambda: JsonVisualizer(filename="crypto_report.json"),
+    "json": lambda: JsonVisualizer(),
     "csv": lambda: CsvVisualizer(filename="crypto_report.csv"),
+}
+
+STORAGES: dict[str, Callable[[], BaseStorage]] = {
+    "json": lambda: JsonStorage(),
 }
 
 
@@ -78,6 +83,15 @@ def build_visualizer(output: str) -> BaseVisualizer:
     return VISUALIZERS[output]()
 
 
+def build_storage() -> BaseStorage:
+    """
+    Фабричная функция для создания хранилища данных.
+
+    : return: Экземпляр хранилища.
+    """
+    return STORAGES["json"]()
+
+
 @app.command()
 def main(
         source: str = typer.Option("coingecko", help="Источник данных: coingecko или coinmarketcap"),
@@ -85,10 +99,11 @@ def main(
         top: int = typer.Option(3, min=1, max=50, help="Количество лидеров роста и падения (от 1 до 50)")
 ):
     """
-    Точка входа CLI. Загружает данные, анализирует и отображает результаты.
+    Точка входа CLI. Загружает данные, анализирует, отображает результаты и сохраняет их.
     """
     provider = build_provider(source)
     visualizer = build_visualizer(output)
+    storage = build_storage()
 
     try:
         with console.status("Загружаем данные..."):
@@ -96,6 +111,7 @@ def main(
         analyzer = CryptoAnalyzer(coins)
         results = analyzer.analyze_data(top)
         visualizer.display(results)
+        storage.save(results)
     except Exception as e:
         logger.error(f"Произошла ошибка при работе с данными: {e}")
 
