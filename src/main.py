@@ -13,7 +13,6 @@ import os
 from collections.abc import Callable
 
 import typer
-from dotenv import load_dotenv
 from rich.console import Console
 
 from src.api_client import ApiClient
@@ -22,8 +21,7 @@ from src.parsers import GeckoParser, CMCParser
 from src.providers import CryptoProvider, GeckoProvider, CMCProvider
 from src.storage import BaseStorage, JsonStorage
 from src.visualizers import BaseVisualizer, ConsoleVisualizer, JsonVisualizer, CsvVisualizer
-
-load_dotenv()
+from src.settings import settings, StorageType
 
 app = typer.Typer()
 
@@ -52,8 +50,8 @@ VISUALIZERS: dict[str, Callable[[], BaseVisualizer]] = {
     "csv": lambda: CsvVisualizer(filename="crypto_report.csv"),
 }
 
-STORAGES: dict[str, Callable[[], BaseStorage]] = {
-    "json": lambda: JsonStorage(),
+STORAGES: dict[StorageType, Callable[[], BaseStorage]] = {
+    StorageType.JSON: lambda: JsonStorage(),
 }
 
 
@@ -89,7 +87,7 @@ def build_storage() -> BaseStorage:
 
     : return: Экземпляр хранилища.
     """
-    return STORAGES["json"]()
+    return STORAGES[settings.storage]()
 
 
 @app.command()
