@@ -20,6 +20,10 @@ class BaseStorage(ABC):
         """Сохраняет данные текущего анализа в долгосрочное хранилище."""
         pass
 
+    def get_all_snapshots(self) -> list[dict]:
+        """(Опционально) Возвращает список всех сохраненных снимков."""
+        raise NotImplementedError("Это хранилище не поддерживает просмотр списка снимков.")
+
     def get_snapshot_comparison(self, snapshot_id_1: int, snapshot_id_2: int):
         """(Опционально) Возвращает разницу цен между двумя снимками."""
         raise NotImplementedError("Это хранилище не поддерживает аналитику.")
@@ -127,6 +131,15 @@ class SqliteStorage(BaseStorage):
 
             conn.commit()
             logger.info("Данные успешно сохранены в SQLite")
+
+    def get_all_snapshots(self) -> list[dict]:
+        """Возвращает список всех снимков (ID, дата, общая капитализация)."""
+        query = "SELECT id, created_at, total_market_cap FROM snapshots ORDER BY id ASC"
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(query)
+            return [dict(row) for row in cursor.fetchall()]
 
     def get_snapshot_comparison(self, snapshot_id_1: int, snapshot_id_2: int) -> list[dict]:
         """Сравнивает цены монет между двумя снимками."""
