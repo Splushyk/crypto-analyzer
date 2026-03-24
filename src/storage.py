@@ -8,17 +8,19 @@ logger = logging.getLogger(__name__)
 
 
 class BaseStorage(ABC):
-    """Абстрактный базовый класс для сохранения результатов анализа в БД."""
+    """
+    Базовый интерфейс для работы с долгосрочным хранилищем данных.
+    Обеспечивает обязательный функционал сохранения и опциональный доступ к истории.
+    """
 
     @abstractmethod
     def save(self, coins: list, results: dict) -> None:
-        """Метод для сохранения результатов анализа в БД."""
+        """Сохраняет текущий снимок рынка в хранилище."""
         pass
 
-    @abstractmethod
-    def get_snapshot_comparison(self, id1: int, id2: int) -> list[dict]:
-        """Метод сравнивает два снимка по их ID и возвращает разницу цен."""
-        pass
+    def get_snapshot_comparison(self, id1: int, id2: int):
+        """(Опционально) Возвращает сравнение двух снимков."""
+        raise NotImplementedError("Это хранилище не поддерживает аналитику.")
 
 
 class JsonStorage(BaseStorage):
@@ -52,11 +54,6 @@ class JsonStorage(BaseStorage):
             json.dump(report, file, indent=4, ensure_ascii=False)
 
         logger.info(f"Отчет успешно сохранен в JSON-файл: {self.filename}")
-
-    class JsonStorage(BaseStorage):
-        # ...
-        def get_snapshot_comparison(self, id1: int, id2: int) -> list[dict]:
-            raise NotImplementedError("Сравнение снимков реализовано только для SQLite.")
 
 
 class SqliteStorage(BaseStorage):
@@ -122,10 +119,10 @@ class SqliteStorage(BaseStorage):
     def get_snapshot_comparison(self, id1: int, id2: int) -> list[dict]:
         query = """
                 SELECT t1.symbol,
-                       t1.price                                 AS old_price,
-                       t2.price                                 AS new_price,
-                       (t2.price - t1.price)                    AS price_diff,
-                       ((t2.price - t1.price) / t1.price * 100) AS percent_change
+                       t1.price                                            AS old_price,
+                       t2.price                                            AS new_price,
+                       (t2.price - t1.price)                               AS price_diff,
+                       ((t2.price - t1.price) / NULLIF(t1.price, 0) * 100) AS percent_change
                 FROM coin_prices AS t1
                          JOIN coin_prices AS t2
                               ON t1.symbol = t2.symbol
