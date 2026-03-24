@@ -19,7 +19,7 @@ from src.api_client import ApiClient
 from src.analyzer import CryptoAnalyzer
 from src.parsers import GeckoParser, CMCParser
 from src.providers import CryptoProvider, GeckoProvider, CMCProvider
-from src.storage import BaseStorage, JsonStorage
+from src.storage import BaseStorage, JsonStorage, SqliteStorage
 from src.visualizers import BaseVisualizer, ConsoleVisualizer, JsonVisualizer, CsvVisualizer
 from src.settings import settings, StorageType
 
@@ -52,6 +52,7 @@ VISUALIZERS: dict[str, Callable[[], BaseVisualizer]] = {
 
 STORAGES: dict[StorageType, Callable[[], BaseStorage]] = {
     StorageType.JSON: lambda: JsonStorage(),
+    StorageType.SQLITE: lambda: SqliteStorage(),
 }
 
 
@@ -109,7 +110,7 @@ def main(
         analyzer = CryptoAnalyzer(coins)
         results = analyzer.analyze_data(top)
         visualizer.display(results)
-        storage.save(results)
+        storage.save(coins, results)
     except Exception as e:
         logger.error(f"Произошла ошибка при работе с данными: {e}")
 
