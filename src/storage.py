@@ -9,29 +9,39 @@ logger = logging.getLogger(__name__)
 
 class BaseStorage(ABC):
     """
-    Базовый интерфейс для работы с долгосрочным хранилищем данных.
-    Обеспечивает обязательный функционал сохранения и опциональный доступ к истории.
+    Интерфейс хранилища данных.
+
+    Обязательно реализует сохранение (save).
+    Методы аналитики являются опциональными.
     """
 
     @abstractmethod
     def save(self, coins: list, results: dict) -> None:
-        """Сохраняет текущий снимок рынка в хранилище."""
+        """Сохраняет данные текущего анализа в долгосрочное хранилище."""
         pass
 
-    def get_snapshot_comparison(self, id1: int, id2: int):
-        """(Опционально) Возвращает сравнение двух снимков."""
+    def get_snapshot_comparison(self, snapshot_id_1: int, snapshot_id_2: int):
+        """(Опционально) Возвращает разницу цен между двумя снимками."""
+        raise NotImplementedError("Это хранилище не поддерживает аналитику.")
+
+    def get_coin_history(self, symbol: str) -> list[dict]:
+        """(Опционально) Возвращает историю изменения цены конкретной монеты."""
+        raise NotImplementedError("Это хранилище не поддерживает аналитику.")
+
+    def get_top_movers(self) -> dict[str, list[dict]]:
+        """(Опционально) Возвращает лидеров роста и падения за последний снимок."""
         raise NotImplementedError("Это хранилище не поддерживает аналитику.")
 
 
 class JsonStorage(BaseStorage):
-    """Сохраняет результаты анализа в JSON-файл."""
+    """Хранилище для записи результатов анализа в статичный JSON-файл."""
 
     def __init__(self, filename: str = "crypto_report.json"):
         self.filename = filename
 
     def save(self, coins: list, results: dict) -> None:
+        """Формирует отчет и сохраняет его в JSON."""
         date = datetime.now()
-
         report = {
             "generated_at": date.strftime("%Y-%m-%d %H-%M-%S"),
             "total_market_cap_usd": results["total_market_cap"],
@@ -57,13 +67,14 @@ class JsonStorage(BaseStorage):
 
 
 class SqliteStorage(BaseStorage):
-    """Сохраняет результаты анализа в БД."""
+    """Реляционное хранилище с поддержкой SQL-аналитики."""
 
     def __init__(self, db_path: str = "crypto_report.db"):
         self.db_path = db_path
         self._init_db()
 
     def _init_db(self) -> None:
+        """Создает таблицы snapshots и coin_prices, если они отсутствуют."""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
 
@@ -94,6 +105,7 @@ class SqliteStorage(BaseStorage):
             conn.commit()
 
     def save(self, coins: list, results: dict) -> None:
+        """Записывает новый снимок и все связанные цены монет в БД."""
         created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         with sqlite3.connect(self.db_path) as conn:
@@ -114,9 +126,10 @@ class SqliteStorage(BaseStorage):
             )
 
             conn.commit()
-            logger.info("Данные сохранены в БД")
+            logger.info("Данные успешно сохранены в SQLite")
 
-    def get_snapshot_comparison(self, id1: int, id2: int) -> list[dict]:
+    def get_snapshot_comparison(self, snapshot_id_1: int, snapshot_id_2: int) -> list[dict]:
+        """Сравнивает цены монет между двумя снимками."""
         query = """
                 SELECT t1.symbol,
                        t1.price                                            AS old_price,
@@ -130,12 +143,64 @@ class SqliteStorage(BaseStorage):
                   AND t2.snapshot_id = ?
                 ORDER BY percent_change DESC
                 """
-
         with sqlite3.connect(self.db_path) as conn:
             # Получаем результат в виде словарей, а не кортежей
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
-            cursor.execute(query, (id1, id2))
+            cursor.execute(query, (snapshot_id_1, snapshot_id_2))
 
             # Превращаем Row-объекты в обычные словари Python
             return [dict(row) for row in cursor.fetchall()]
+
+    def get_coin_history(self, symbol: str) -> list[dict]:
+        """Получает историю цен конкретной монеты."""
+        query = """
+                SELECT s.created_at, cp.price
+                FROM coin_prices AS cp
+                         JOIN snapshots AS s
+                              ON cp.snapshot_id = s.id
+                WHERE cp.symbol = ?
+                ORDER BY s.created_at ASC
+                """
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(query, (symbol.upper(),))
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_top_movers(self) -> dict[str, list[dict]]:
+        """
+        Возвращает фиксированный топ-5 монет по росту и топ-5 по падению
+        за последний снимок.
+        """
+        # Запрос для лидеров роста
+        query_up = """
+                   SELECT symbol, price, change_24h
+                   FROM coin_prices
+                   WHERE snapshot_id = (SELECT MAX(id) FROM snapshots)
+                   ORDER BY change_24h DESC
+                   LIMIT 5
+                   """
+        # Запрос для лидеров падения
+        query_down = """
+                     SELECT symbol, price, change_24h
+                     FROM coin_prices
+                     WHERE snapshot_id = (SELECT MAX(id) FROM snapshots)
+                     ORDER BY change_24h ASC
+                     LIMIT 5
+                     """
+
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            cursor.execute(query_up)
+            gainers = [dict(row) for row in cursor.fetchall()]
+
+            cursor.execute(query_down)
+            losers = [dict(row) for row in cursor.fetchall()]
+
+            return {
+                "gainers": gainers,
+                "losers": losers
+            }
