@@ -20,7 +20,7 @@ from src.analyzer import CryptoAnalyzer
 from src.parsers import GeckoParser, CMCParser
 from src.providers import CryptoProvider, GeckoProvider, CMCProvider
 from src.storage import BaseStorage, JsonStorage, SqliteStorage
-from src.visualizers import BaseVisualizer, ConsoleVisualizer, CsvVisualizer
+from src.visualizers import BaseVisualizer, ConsoleVisualizer
 from src.settings import settings, StorageType
 
 app = typer.Typer()
@@ -46,7 +46,6 @@ PROVIDERS: dict[str, Callable[[], CryptoProvider]] = {
 
 VISUALIZERS: dict[str, Callable[[], BaseVisualizer]] = {
     "console": lambda: ConsoleVisualizer(),
-    "csv": lambda: CsvVisualizer(filename="crypto_report.csv"),
 }
 
 STORAGES: dict[StorageType, Callable[[], BaseStorage]] = {
@@ -72,7 +71,7 @@ def build_visualizer(output: str) -> BaseVisualizer:
     """
     Фабричная функция для создания визуализатора.
 
-    :param output: Формат вывода ('console', 'json' или 'csv').
+    :param output: Формат вывода ('console').
     :return: Экземпляр визуализатора.
     :raises ValueError: Если передан неизвестный формат.
     """
@@ -93,7 +92,7 @@ def build_storage() -> BaseStorage:
 @app.command()
 def run(
         source: str = typer.Option("coingecko", help="Источник данных: coingecko или coinmarketcap"),
-        output: str = typer.Option("console", help="Формат вывода: console или csv"),
+        output: str = typer.Option("console", help="Формат вывода: console"),
         top: int = typer.Option(3, min=1, max=50, help="Количество лидеров роста и падения (от 1 до 50)")
 ):
     """

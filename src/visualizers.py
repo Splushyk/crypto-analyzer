@@ -82,33 +82,3 @@ class ConsoleVisualizer(BaseVisualizer):
                 f"[{color}]{row['percent_change']:+.2f}%[/{color}]"
             )
         self.console.print(table)
-
-
-class CsvVisualizer(BaseVisualizer):
-    """Сохраняет результаты анализа в CSV-файл."""
-
-    def __init__(self, filename: str = "crypto_report.csv"):
-        self.filename = filename
-
-    def display(self, results: dict):
-        categories = [
-            (results["top_up"], "Gainer"),
-            (results["top_down"], "Loser")
-        ]
-
-        with open(self.filename, mode="w", newline="", encoding="utf-8") as file:
-            writer = csv.writer(file)
-            writer.writerow(["Name", "Symbol", "Type", "Price", "Change 24h", "Market Cap"])
-
-            for coins_list, category_name in categories:
-                for coin in coins_list:
-                    writer.writerow([
-                        coin.name,
-                        coin.symbol,
-                        category_name,
-                        f"{coin.price:.2f}",
-                        f"{coin.change_24h:.2f}",
-                        f"{coin.market_cap:.0f}"
-                    ])
-
-        logger.info(f"Отчет успешно сохранен в CSV-файл: {self.filename}")
