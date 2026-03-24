@@ -20,7 +20,7 @@ from src.analyzer import CryptoAnalyzer
 from src.parsers import GeckoParser, CMCParser
 from src.providers import CryptoProvider, GeckoProvider, CMCProvider
 from src.storage import BaseStorage, JsonStorage, SqliteStorage
-from src.visualizers import BaseVisualizer, ConsoleVisualizer, JsonVisualizer, CsvVisualizer
+from src.visualizers import BaseVisualizer, ConsoleVisualizer, CsvVisualizer
 from src.settings import settings, StorageType
 
 app = typer.Typer()
@@ -46,7 +46,6 @@ PROVIDERS: dict[str, Callable[[], CryptoProvider]] = {
 
 VISUALIZERS: dict[str, Callable[[], BaseVisualizer]] = {
     "console": lambda: ConsoleVisualizer(),
-    "json": lambda: JsonVisualizer(),
     "csv": lambda: CsvVisualizer(filename="crypto_report.csv"),
 }
 
@@ -92,9 +91,9 @@ def build_storage() -> BaseStorage:
 
 
 @app.command()
-def main(
+def run(
         source: str = typer.Option("coingecko", help="Источник данных: coingecko или coinmarketcap"),
-        output: str = typer.Option("console", help="Формат вывода: console, json или csv"),
+        output: str = typer.Option("console", help="Формат вывода: console или csv"),
         top: int = typer.Option(3, min=1, max=50, help="Количество лидеров роста и падения (от 1 до 50)")
 ):
     """
@@ -109,10 +108,55 @@ def main(
             coins = provider.get_coins()
         analyzer = CryptoAnalyzer(coins)
         results = analyzer.analyze_data(top)
+
+        # Показываем результат (Консоль или создаем CSV)
         visualizer.display(results)
+
+        # Сохраняем в базу (SQLite или JSON-базу)
         storage.save(coins, results)
+
     except Exception as e:
         logger.error(f"Произошла ошибка при работе с данными: {e}")
+
+
+@app.command()
+def list_snapshots():
+    """Выводит список всех сохранённых снимков с датой и временем."""
+    storage = build_storage()
+    # Нам нужен именно консольный визуализатор для таблиц
+    visualizer = ConsoleVisualizer()
+
+    try:
+        # Убеждаемся, что работаем с базой, которая поддерживает списки
+        if hasattr(storage, 'get_all_snapshots'):
+            snapshots = storage.get_all_snapshots()
+            if not snapshots:
+                console.print("[yellow]База данных пуста.[/yellow]")
+                return
+            visualizer.display_snapshots(snapshots)
+        else:
+            console.print("[red]Выбранный тип хранилища не поддерживает просмотр снимков.[/red]")
+    except Exception as e:
+        logger.error(f"Ошибка при получении списка снимков: {e}")
+
+
+@app.command()
+def compare(id1: int, id2: int):
+    """Сравнивает два снимка по ID (например: compare 1 5)."""
+    storage = build_storage()
+    visualizer = ConsoleVisualizer()
+
+    try:
+        if hasattr(storage, 'get_snapshot_comparison'):
+            diff = storage.get_snapshot_comparison(id1, id2)
+            if not diff:
+                console.print(f"[yellow]Данные для снимков {id1} и {id2} не найдены.[/yellow]")
+                return
+            visualizer.display_comparison(diff, id1, id2)
+        else:
+            console.print("[red]Это хранилище не поддерживает сравнение.[/red]")
+    except Exception as e:
+        logger.error(f"Ошибка при сравнении снимков: {e}")
 
 
 if __name__ == "__main__":
