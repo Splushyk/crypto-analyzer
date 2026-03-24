@@ -15,6 +15,11 @@ class BaseStorage(ABC):
         """Метод для сохранения результатов анализа в БД."""
         pass
 
+    @abstractmethod
+    def get_snapshot_comparison(self, id1: int, id2: int) -> list[dict]:
+        """Метод сравнивает два снимка по их ID и возвращает разницу цен."""
+        pass
+
 
 class JsonStorage(BaseStorage):
     """Сохраняет результаты анализа в JSON-файл."""
@@ -47,6 +52,11 @@ class JsonStorage(BaseStorage):
             json.dump(report, file, indent=4, ensure_ascii=False)
 
         logger.info(f"Отчет успешно сохранен в JSON-файл: {self.filename}")
+
+    class JsonStorage(BaseStorage):
+        # ...
+        def get_snapshot_comparison(self, id1: int, id2: int) -> list[dict]:
+            raise NotImplementedError("Сравнение снимков реализовано только для SQLite.")
 
 
 class SqliteStorage(BaseStorage):
@@ -108,3 +118,27 @@ class SqliteStorage(BaseStorage):
 
             conn.commit()
             logger.info("Данные сохранены в БД")
+
+    def get_snapshot_comparison(self, id1: int, id2: int) -> list[dict]:
+        query = """
+                SELECT t1.symbol,
+                       t1.price                                 AS old_price,
+                       t2.price                                 AS new_price,
+                       (t2.price - t1.price)                    AS price_diff,
+                       ((t2.price - t1.price) / t1.price * 100) AS percent_change
+                FROM coin_prices AS t1
+                         JOIN coin_prices AS t2
+                              ON t1.symbol = t2.symbol
+                WHERE t1.snapshot_id = ?
+                  AND t2.snapshot_id = ?
+                ORDER BY percent_change DESC
+                """
+
+        with sqlite3.connect(self.db_path) as conn:
+            # Получаем результат в виде словарей, а не кортежей
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(query, (id1, id2))
+
+            # Превращаем Row-объекты в обычные словари Python
+            return [dict(row) for row in cursor.fetchall()]
