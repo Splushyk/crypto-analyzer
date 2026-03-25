@@ -33,5 +33,6 @@ def sample_results(sample_coin):
 
 @pytest.fixture
 def sqlite_storage():
-    """Создает экземпляр хранилища в оперативной памяти для тестов."""
-    return SqliteStorage(":memory:")
+    """Создает изолированное хранилище в памяти для каждого теста."""
+    with SqliteStorage(":memory:") as storage:
+        yield storage

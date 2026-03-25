@@ -92,12 +92,22 @@ class SqliteStorage(BaseStorage):
 
     def __init__(self, db_path: str = "crypto_report.db"):
         self.db_path = db_path
+        # Открываем соединение сразу
+        self.conn = sqlite3.connect(self.db_path)
+        self.conn.row_factory = sqlite3.Row
         self._init_db()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # Гарантируем закрытие при выходе из with
+        self.conn.close()
 
     def _init_db(self) -> None:
         """Создает таблицы snapshots и coin_prices, если они отсутствуют."""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
+        with self.conn:
+            cursor = self.conn.cursor()
 
             cursor.execute("""
                            CREATE TABLE IF NOT EXISTS snapshots
@@ -123,14 +133,12 @@ class SqliteStorage(BaseStorage):
                            )
                            """)
 
-            conn.commit()
-
     def save(self, coins: list, results: dict) -> None:
         """Записывает новый снимок и все связанные цены монет в БД."""
         created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
+        with self.conn:
+            cursor = self.conn.cursor()
 
             cursor.execute(
                 "INSERT INTO snapshots (created_at, total_market_cap) VALUES (?, ?)",
@@ -146,17 +154,15 @@ class SqliteStorage(BaseStorage):
                 ]
             )
 
-            conn.commit()
             logger.info("Данные успешно сохранены в SQLite")
 
     def get_all_snapshots(self) -> list[dict]:
         """Возвращает список всех снимков (ID, дата, общая капитализация)."""
         query = "SELECT id, created_at, total_market_cap FROM snapshots ORDER BY id ASC"
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            cursor.execute(query)
-            return [dict(row) for row in cursor.fetchall()]
+        # Используем self.conn напрямую
+        cursor = self.conn.cursor()
+        cursor.execute(query)
+        return [dict(row) for row in cursor.fetchall()]
 
     def get_snapshot_comparison(self, snapshot_id_1: int, snapshot_id_2: int) -> list[dict]:
         """Сравнивает цены монет между двумя снимками."""
@@ -173,14 +179,10 @@ class SqliteStorage(BaseStorage):
                   AND t2.snapshot_id = ?
                 ORDER BY percent_change DESC
                 """
-        with sqlite3.connect(self.db_path) as conn:
-            # Получаем результат в виде словарей, а не кортежей
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            cursor.execute(query, (snapshot_id_1, snapshot_id_2))
-
-            # Превращаем Row-объекты в обычные словари Python
-            return [dict(row) for row in cursor.fetchall()]
+        # Используем self.conn напрямую
+        cursor = self.conn.cursor()
+        cursor.execute(query, (snapshot_id_1, snapshot_id_2))
+        return [dict(row) for row in cursor.fetchall()]
 
     def get_coin_history(self, symbol: str) -> list[dict]:
         """Получает историю цен конкретной монеты."""
@@ -192,11 +194,10 @@ class SqliteStorage(BaseStorage):
                 WHERE cp.symbol = ?
                 ORDER BY s.created_at ASC
                 """
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            cursor.execute(query, (symbol.upper(),))
-            return [dict(row) for row in cursor.fetchall()]
+        # Используем self.conn напрямую
+        cursor = self.conn.cursor()
+        cursor.execute(query, (symbol.upper(),))
+        return [dict(row) for row in cursor.fetchall()]
 
     def get_top_movers(self) -> dict[str, list[dict]]:
         """
@@ -220,17 +221,16 @@ class SqliteStorage(BaseStorage):
                      LIMIT 5
                      """
 
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
+        # Используем self.conn напрямую
+        cursor = self.conn.cursor()
 
-            cursor.execute(query_up)
-            gainers = [dict(row) for row in cursor.fetchall()]
+        cursor.execute(query_up)
+        gainers = [dict(row) for row in cursor.fetchall()]
 
-            cursor.execute(query_down)
-            losers = [dict(row) for row in cursor.fetchall()]
+        cursor.execute(query_down)
+        losers = [dict(row) for row in cursor.fetchall()]
 
-            return {
-                "gainers": gainers,
-                "losers": losers
-            }
+        return {
+            "gainers": gainers,
+            "losers": losers
+        }
