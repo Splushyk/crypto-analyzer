@@ -7,17 +7,6 @@ import pytest
 from src.visualizers import ConsoleVisualizer
 
 
-@pytest.fixture
-def sample_results(sample_coin):
-    """Тестовые данные для визуализации."""
-    return {
-        "top_up": [sample_coin],
-        "top_down": [sample_coin],
-        "max_volume": sample_coin,
-        "total_market_cap": 777.12345
-    }
-
-
 def test_console_visualizer_display_calls_print(sample_results, mocker):
     """
     Проверка вывода основного анализа в консоль.

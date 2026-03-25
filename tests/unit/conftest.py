@@ -5,18 +5,6 @@ from src.models import Cryptocurrency
 
 
 @pytest.fixture
-def sample_coin():
-    return Cryptocurrency(
-        name="SomeCoin",
-        symbol="SC",
-        price=10.12345,
-        change_24h=8.12345,
-        volume=555.12345,
-        market_cap=777.12345
-    )
-
-
-@pytest.fixture
 def gecko_raw_data():
     return [
         {
