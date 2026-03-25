@@ -6,6 +6,8 @@
 import pytest
 from src.visualizers import ConsoleVisualizer
 
+pytestmark = pytest.mark.unit
+
 
 def test_console_visualizer_display_calls_print(sample_results, mocker):
     """

@@ -6,6 +6,8 @@ import pytest
 
 from src.models import Cryptocurrency
 
+pytestmark = pytest.mark.unit
+
 
 def test_cryptocurrency_model_creation(sample_coin):
     assert sample_coin.name == "SomeCoin"

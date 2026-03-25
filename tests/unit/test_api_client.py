@@ -15,6 +15,7 @@ import requests
 
 from src.api_client import ApiClient
 
+pytestmark = pytest.mark.unit
 
 def test_api_client_creation(api_client):
     assert isinstance(api_client, ApiClient)

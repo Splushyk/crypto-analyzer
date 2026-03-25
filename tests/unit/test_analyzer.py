@@ -14,6 +14,8 @@ import pytest
 from src.analyzer import CryptoAnalyzer
 from src.models import Cryptocurrency
 
+pytestmark = pytest.mark.unit
+
 
 def test_analyze_data():
     coins = [

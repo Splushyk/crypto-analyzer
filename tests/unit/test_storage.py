@@ -1,8 +1,10 @@
 import json
-
+import pytest
 from freezegun import freeze_time
 
 from src.storage import JsonStorage
+
+pytestmark = pytest.mark.unit
 
 
 @freeze_time("2026-03-16 10:00:00")

@@ -8,8 +8,8 @@ from typer.testing import CliRunner
 import src.main
 from src.main import app
 from src.providers import CMCProvider, GeckoProvider
-from src.visualizers import ConsoleVisualizer
 
+pytestmark = pytest.mark.unit
 runner = CliRunner()
 
 

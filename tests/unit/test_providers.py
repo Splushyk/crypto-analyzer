@@ -13,6 +13,8 @@
 import pytest
 from src.providers import GeckoProvider, CMCProvider
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.mark.parametrize("provider_class, data_fixture, transform_func", [
     # Для Gecko данные идут как есть (просто возвращаем их)

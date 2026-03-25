@@ -38,6 +38,10 @@ dev = [
 [tool.pytest.ini_options]
 pythonpath = "."
 testpaths = ["tests"]
+markers = [
+    "unit: Quick tests with mocks (no I/O or DB)",
+    "integration: Tests that interact with DB or File System",
+]
 addopts = [
     "-v",
     "-ra",
