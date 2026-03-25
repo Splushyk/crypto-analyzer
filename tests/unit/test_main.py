@@ -139,12 +139,12 @@ def test_main_compare_success(mock_dependencies, mocker):
     fake_diff = [{
         'symbol': 'BTC', 'old_price': 100, 'new_price': 110, 'percent_change': 10
     }]
-    mock_dependencies["storage"].get_snapshot_comparison.return_value = fake_diff
+    mock_dependencies["storage"].get_snapshot_compare.return_value = fake_diff
 
     # Мокаем класс визуализатора локально
     mock_viz_class = mocker.patch("src.main.ConsoleVisualizer")
 
-    result = runner.invoke(app, ["compare", "1", "2"])
+    result = runner.invoke(app, ["compare-snapshots", "1", "2"])
 
     assert result.exit_code == 0
     mock_viz_class.return_value.display_comparison.assert_called_once()
