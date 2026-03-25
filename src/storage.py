@@ -164,7 +164,7 @@ class SqliteStorage(BaseStorage):
         cursor.execute(query)
         return [dict(row) for row in cursor.fetchall()]
 
-    def get_snapshot_comparison(self, snapshot_id_1: int, snapshot_id_2: int) -> list[dict]:
+    def get_snapshot_compare(self, snapshot_id_1: int, snapshot_id_2: int) -> list[dict]:
         """Сравнивает цены монет между двумя снимками."""
         query = """
                 SELECT t1.symbol,

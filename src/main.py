@@ -140,14 +140,14 @@ def list_snapshots():
 
 
 @app.command()
-def compare(id1: int, id2: int):
+def compare_snapshots(id1: int, id2: int):
     """Сравнивает два снимка по ID (например: compare 1 5)."""
     storage = build_storage()
     visualizer = ConsoleVisualizer()
 
     try:
-        if hasattr(storage, 'get_snapshot_comparison'):
-            diff = storage.get_snapshot_comparison(id1, id2)
+        if hasattr(storage, 'get_snapshot_compare'):
+            diff = storage.get_snapshot_compare(id1, id2)
             if not diff:
                 console.print(f"[yellow]Данные для снимков {id1} и {id2} не найдены.[/yellow]")
                 return
