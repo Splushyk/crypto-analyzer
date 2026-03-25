@@ -43,7 +43,7 @@ def mock_dependencies(mocker, sample_coin):
     }
 
 
-def test_main_success_flow(mock_dependencies):
+def test_run_success_flow(mock_dependencies):
     result = runner.invoke(app, ["run", "--source", "coingecko", "--output", "console"])
     assert result.exit_code == 0
     mock_dependencies["provider"].get_coins.assert_called_once()
@@ -51,7 +51,7 @@ def test_main_success_flow(mock_dependencies):
     mock_dependencies["storage"].save.assert_called_once()
 
 
-def test_main_invalid_source():
+def test_run_invalid_source():
     """Проверка ошибки при неверном источнике данных."""
     # Используем catch_exceptions=False, чтобы увидеть реальную ошибку
     with pytest.raises(ValueError) as excinfo:
@@ -60,7 +60,7 @@ def test_main_invalid_source():
     assert "Выбор возможен между" in str(excinfo.value)
 
 
-def test_main_invalid_output():
+def test_run_invalid_output():
     """Проверка ошибки при неверном формате вывода (покрытие ошибки в build_visualizer)."""
     # Вызываем через runner, ожидаем ValueError из-за логики в build_visualizer
     with pytest.raises(ValueError) as excinfo:
@@ -70,13 +70,13 @@ def test_main_invalid_output():
 
 
 @pytest.mark.parametrize("source", ["coingecko", "coinmarketcap"])
-def test_main_sources_dispatch(source, mock_dependencies, mocker):
+def test_run_sources_dispatch(source, mock_dependencies, mocker):
     spy_build = mocker.spy(src.main, "build_provider")
     runner.invoke(app, ["run", "--source", source])
     spy_build.assert_called_with(source)
 
 
-def test_main_error_handling(mocker, caplog):
+def test_run_error_handling(mocker, caplog):
     """Проверка логирования ошибок."""
     mock_provider = mocker.Mock()
     mock_provider.get_coins.side_effect = Exception("API Error")
@@ -91,7 +91,7 @@ def test_main_error_handling(mocker, caplog):
     assert "Произошла ошибка при работе с данными: API Error" in caplog.text
 
 
-def test_main_top_argument_passing(mock_dependencies):
+def test_run_top_argument_passing(mock_dependencies):
     """Проверка проброса параметра --top в анализатор."""
     runner.invoke(app, ["run", "--top", "10"])
 
