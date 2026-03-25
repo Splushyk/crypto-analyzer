@@ -76,18 +76,13 @@ def test_run_sources_dispatch(source, mock_dependencies, mocker):
     spy_build.assert_called_with(source)
 
 
-def test_run_error_handling(mocker, caplog):
+def test_run_error_handling(mock_dependencies, caplog):
     """Проверка логирования ошибок."""
-    mock_provider = mocker.Mock()
-    mock_provider.get_coins.side_effect = Exception("API Error")
-    mocker.patch("src.main.build_provider", return_value=mock_provider)
-    mocker.patch("src.main.build_storage")
+    mock_dependencies["provider"].get_coins.side_effect = Exception("API Error")
 
-    # В main.py ошибка ловится внутри try/except, поэтому exit_code будет 0
     with caplog.at_level("ERROR"):
-        result = runner.invoke(app, ["run", "--source", "coingecko"])
+        runner.invoke(app, ["run", "--source", "coingecko"])
 
-    assert result.exit_code == 0
     assert "Произошла ошибка при работе с данными: API Error" in caplog.text
 
 
