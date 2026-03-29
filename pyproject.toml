@@ -12,6 +12,7 @@ dependencies = [
     "colorama==0.4.6",
     "django>=6.0.3",
     "django-environ>=0.13.0",
+    "django-extensions>=4.1",
     "idna==3.11",
     "ipython>=9.12.0",
     "librt==0.8.1",
