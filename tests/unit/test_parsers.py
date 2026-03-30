@@ -26,12 +26,7 @@ def test_parsers_work_correctly(parser_class, data_fixture, request, sample_coin
 
     assert len(result) == 1
     assert isinstance(result[0], Cryptocurrency)
-    assert result[0].name == sample_coin.name
-    assert result[0].symbol == sample_coin.symbol
-    assert result[0].price == sample_coin.price
-    assert result[0].change_24h == sample_coin.change_24h
-    assert result[0].volume == sample_coin.volume
-    assert result[0].market_cap == sample_coin.market_cap
+    assert result[0] == sample_coin
 
 
 @pytest.mark.parametrize("parser_class", [GeckoParser, CMCParser])

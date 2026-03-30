@@ -16,3 +16,17 @@ class Cryptocurrency:
         if not isinstance(other, Cryptocurrency):
             return NotImplemented
         return self.change_24h < other.change_24h
+
+    def __eq__(self, other):
+        if not isinstance(other, Cryptocurrency):
+            return NotImplemented
+
+        # Сравниваем все значимые поля
+        return (
+                self.name == other.name and
+                self.symbol == other.symbol and
+                self.price == other.price and
+                self.change_24h == other.change_24h and
+                self.volume == other.volume and
+                self.market_cap == other.market_cap
+        )
