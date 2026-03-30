@@ -16,11 +16,6 @@ import requests
 from src.api_client import ApiClient
 
 
-def test_api_client_creation(api_client):
-    assert isinstance(api_client, ApiClient)
-    assert api_client.base_url == "https://fake-api.com"
-
-
 @pytest.mark.parametrize("base_url, headers", [
     ("https://fake-api.com", {"Some_item": "some_value"}),
     ("https://fake-api.com", None),
