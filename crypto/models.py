@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 
 class Snapshot(models.Model):
@@ -10,8 +11,8 @@ class Snapshot(models.Model):
         verbose_name_plural = "Снимки рынка"
 
     def __str__(self):
-        return f"Снимок от {self.created_at.strftime('%d.%m.%Y %H:%M')}"
-
+        local_time = timezone.localtime(self.created_at)
+        return local_time.strftime('%d.%m.%Y %H:%M:%S')
 
 class CoinPrice(models.Model):
     snapshot = models.ForeignKey(
