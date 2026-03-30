@@ -6,7 +6,7 @@
 import pytest
 from typer.testing import CliRunner
 import src.main
-from src.main import app
+from src.main import app, JSON_REPORT_FILENAME, CSV_REPORT_FILENAME
 from src.providers import CMCProvider, GeckoProvider
 from src.visualizers import CsvVisualizer, JsonVisualizer, ConsoleVisualizer
 
@@ -114,11 +114,11 @@ def test_build_visualizer_returns_correct_type(output, expected_class):
     visualizer = src.main.build_visualizer(output)
     assert isinstance(visualizer, expected_class)
 
-
-def test_build_visualizer_parameters():
+@pytest.mark.parametrize("output, expected_filename", [
+    ("json", JSON_REPORT_FILENAME),
+    ("csv", CSV_REPORT_FILENAME),
+])
+def test_build_visualizer_parameters(output, expected_filename):
     """Проверка параметров инициализации визуализаторов."""
-    json_viz = src.main.build_visualizer("json")
-    csv_viz = src.main.build_visualizer("csv")
-
-    assert json_viz.filename == "crypto_report.json"
-    assert csv_viz.filename == "crypto_report.csv"
+    visualizer = src.main.build_visualizer(output)
+    assert visualizer.filename == expected_filename
