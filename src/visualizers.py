@@ -30,7 +30,6 @@ class ConsoleVisualizer(BaseVisualizer):
         self.console = Console()
 
     def display(self, results: dict):
-        """Стандартный вывод после парсинга (Топ-3, объемы)."""
         # 1. Таблица лидеров роста
         table_up = Table(title="Топ монеты (рост)")
         table_up.add_column("Название", style="cyan")
@@ -82,3 +81,66 @@ class ConsoleVisualizer(BaseVisualizer):
                 f"[{color}]{row['percent_change']:+.2f}%[/{color}]"
             )
         self.console.print(table)
+
+
+class JsonVisualizer(BaseVisualizer):
+    """Сохраняет результаты анализа в JSON-файл."""
+
+    def __init__(self, filename: str = "crypto_report.json"):
+        self.filename = filename
+
+    def display(self, results: dict):
+        date = datetime.now()
+
+        report = {
+            "generated_at": date.strftime("%Y-%m-%d %H-%M-%S"),
+            "total_market_cap_usd": results["total_market_cap"],
+            "top_gainers": [
+                {"name": c.name, "symbol": c.symbol, "change_24h": c.change_24h}
+                for c in results["top_up"]
+            ],
+            "top_losers": [
+                {"name": c.name, "symbol": c.symbol, "change_24h": c.change_24h}
+                for c in results["top_down"]
+            ],
+            "highest_volume": {
+                "name": results["max_volume"].name,
+                "symbol": results["max_volume"].symbol,
+                "volume": results["max_volume"].volume
+            }
+        }
+
+        with open(self.filename, "w", encoding="utf-8") as file:
+            json.dump(report, file, indent=4, ensure_ascii=False)
+
+        logger.info(f"Отчет успешно сохранен в JSON-файл: {self.filename}")
+
+
+class CsvVisualizer(BaseVisualizer):
+    """Сохраняет результаты анализа в CSV-файл."""
+
+    def __init__(self, filename: str = "crypto_report.csv"):
+        self.filename = filename
+
+    def display(self, results: dict):
+        categories = [
+            (results["top_up"], "Gainer"),
+            (results["top_down"], "Loser")
+        ]
+
+        with open(self.filename, mode="w", newline="", encoding="utf-8") as file:
+            writer = csv.writer(file)
+            writer.writerow(["Name", "Symbol", "Type", "Price", "Change 24h", "Market Cap"])
+
+            for coins_list, category_name in categories:
+                for coin in coins_list:
+                    writer.writerow([
+                        coin.name,
+                        coin.symbol,
+                        category_name,
+                        f"{coin.price:.2f}",
+                        f"{coin.change_24h:.2f}",
+                        f"{coin.market_cap:.0f}"
+                    ])
+
+        logger.info(f"Отчет успешно сохранен в CSV-файл: {self.filename}")
