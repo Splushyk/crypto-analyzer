@@ -43,14 +43,28 @@ def api_client():
 
 
 @pytest.fixture
-def mock_session(mocker):
-    mock_response = mocker.Mock()
-    mock_response.raise_for_status.return_value = None
-    mock_response.json.return_value = {"some_item": "some_value"}
+def mock_response(mocker):
+    """Создает только объект ответа."""
+    mock_res = mocker.Mock()
+    mock_res.raise_for_status.return_value = None
+    mock_res.json.return_value = {"some_item": "some_value"}
+    return mock_res
 
-    mock_session = mocker.Mock()
-    mock_session.__enter__ = mocker.Mock(return_value=mock_session)
-    mock_session.__exit__ = mocker.Mock(return_value=False)
 
-    mocker.patch("src.api_client.requests.Session", return_value=mock_session)
-    return mock_session, mock_response
+@pytest.fixture
+def mock_session(mocker, mock_response):
+    """Создает сессию, патчит ее и связывает с mock_response."""
+    mock_sess = mocker.Mock()
+    # Настройка контекстного менеджера (with requests.Session() as session)
+    mock_sess.__enter__ = mocker.Mock(return_value=mock_sess)
+    mock_sess.__exit__ = mocker.Mock(return_value=False)
+
+    # Настраиваем методы сессии
+    mock_sess.request.return_value = mock_response
+    mock_sess.get.return_value = mock_response
+    mock_sess.post.return_value = mock_response
+
+    # Патчим импорт в целевом модуле
+    mocker.patch("src.api_client.requests.Session", return_value=mock_sess)
+
+    return mock_sess

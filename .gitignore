@@ -9,3 +9,4 @@ htmlcov/
 crypto_report.csv
 crypto_report.json
 crypto_report.db
+db.sqlite3
