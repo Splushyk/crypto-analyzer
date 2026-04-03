@@ -14,7 +14,6 @@ import pytest
 from src.analyzer import CryptoAnalyzer
 from src.models import Cryptocurrency
 
-pytestmark = pytest.mark.unit
 
 
 def test_analyze_data():
@@ -33,6 +32,6 @@ def test_analyze_data():
 
 
 def test_analyze_data_empty():
-    analyzer = CryptoAnalyzer([])
-    with pytest.raises(IndexError):
-        analyzer.analyze_data()
+    """Проверяем, что анализатор не принимает пустые данные при создании"""
+    with pytest.raises(ValueError, match="Данные для анализа не могут быть пустыми"):
+        CryptoAnalyzer([])

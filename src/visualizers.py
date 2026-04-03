@@ -2,11 +2,8 @@
 Модуль отвечает за отображение результатов анализа.
 """
 
-import csv
-import json
 import logging
 from abc import ABC, abstractmethod
-from datetime import datetime
 
 from rich.console import Console
 from rich.table import Table
@@ -30,7 +27,6 @@ class ConsoleVisualizer(BaseVisualizer):
         self.console = Console()
 
     def display(self, results: dict):
-        """Стандартный вывод после парсинга (Топ-3, объемы)."""
         # 1. Таблица лидеров роста
         table_up = Table(title="Топ монеты (рост)")
         table_up.add_column("Название", style="cyan")
@@ -82,3 +78,5 @@ class ConsoleVisualizer(BaseVisualizer):
                 f"[{color}]{row['percent_change']:+.2f}%[/{color}]"
             )
         self.console.print(table)
+
+

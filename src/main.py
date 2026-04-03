@@ -13,15 +13,18 @@ import os
 from collections.abc import Callable
 
 import typer
+from dotenv import load_dotenv
 from rich.console import Console
 
 from src.api_client import ApiClient
 from src.analyzer import CryptoAnalyzer
 from src.parsers import GeckoParser, CMCParser
 from src.providers import CryptoProvider, GeckoProvider, CMCProvider
-from src.storage import BaseStorage, JsonStorage, SqliteStorage
-from src.visualizers import BaseVisualizer, ConsoleVisualizer
+from src.storage import AnalyticsStorage, BaseStorage, JsonStorage, SqliteStorage
 from src.settings import settings, StorageType
+from src.visualizers import BaseVisualizer, ConsoleVisualizer
+
+load_dotenv()
 
 app = typer.Typer()
 
@@ -100,62 +103,63 @@ def run(
     """
     provider = build_provider(source)
     visualizer = build_visualizer(output)
-    storage = build_storage()
 
-    try:
-        with console.status("Загружаем данные..."):
-            coins = provider.get_coins()
-        analyzer = CryptoAnalyzer(coins)
-        results = analyzer.analyze_data(top)
+    with build_storage() as storage:
+        try:
+            with console.status("Загружаем данные..."):
+                coins = provider.get_coins()
+            analyzer = CryptoAnalyzer(coins)
+            results = analyzer.analyze_data(top)
 
-        # Показываем результат (Консоль или создаем CSV)
-        visualizer.display(results)
+            # Показываем результат (консоль)
+            visualizer.display(results)
 
-        # Сохраняем в базу (SQLite или JSON-базу)
-        storage.save(coins, results)
+            # Сохраняем в базу (SQLite или JSON-базу)
+            storage.save(coins, results)
 
-    except Exception as e:
-        logger.error(f"Произошла ошибка при работе с данными: {e}")
+        except Exception as e:
+            logger.error(f"Произошла ошибка при работе с данными: {e}")
 
 
 @app.command()
 def list_snapshots():
     """Выводит список всех сохранённых снимков с датой и временем."""
-    storage = build_storage()
     # Нам нужен именно консольный визуализатор для таблиц
     visualizer = ConsoleVisualizer()
 
-    try:
-        # Убеждаемся, что работаем с базой, которая поддерживает списки
-        if hasattr(storage, 'get_all_snapshots'):
+    with build_storage() as storage:
+        if not isinstance(storage, AnalyticsStorage):
+            logger.error("Выбранный тип хранилища не поддерживает просмотр снимков.")
+            raise typer.Exit(code=1)
+
+        try:
             snapshots = storage.get_all_snapshots()
             if not snapshots:
-                console.print("[yellow]База данных пуста.[/yellow]")
+                logger.warning("База данных пуста.")
                 return
             visualizer.display_snapshots(snapshots)
-        else:
-            console.print("[red]Выбранный тип хранилища не поддерживает просмотр снимков.[/red]")
-    except Exception as e:
-        logger.error(f"Ошибка при получении списка снимков: {e}")
+        except Exception as e:
+            logger.error(f"Ошибка при получении списка снимков: {e}")
 
 
 @app.command()
 def compare_snapshots(id1: int, id2: int):
     """Сравнивает два снимка по ID (например: compare 1 5)."""
-    storage = build_storage()
     visualizer = ConsoleVisualizer()
 
-    try:
-        if hasattr(storage, 'get_snapshot_compare'):
+    with build_storage() as storage:
+        if not isinstance(storage, AnalyticsStorage):
+            logger.error("Это хранилище не поддерживает сравнение.")
+            raise typer.Exit(code=1)
+
+        try:
             diff = storage.get_snapshot_compare(id1, id2)
             if not diff:
-                console.print(f"[yellow]Данные для снимков {id1} и {id2} не найдены.[/yellow]")
+                logger.warning(f"Данные для снимков {id1} и {id2} не найдены.")
                 return
             visualizer.display_comparison(diff, id1, id2)
-        else:
-            console.print("[red]Это хранилище не поддерживает сравнение.[/red]")
-    except Exception as e:
-        logger.error(f"Ошибка при сравнении снимков: {e}")
+        except Exception as e:
+            logger.error(f"Ошибка при сравнении снимков: {e}")
 
 
 if __name__ == "__main__":

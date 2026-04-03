@@ -7,9 +7,9 @@ import pytest
 from typer.testing import CliRunner
 import src.main
 from src.main import app
+from src.storage import AnalyticsStorage
 from src.providers import CMCProvider, GeckoProvider
 
-pytestmark = pytest.mark.unit
 runner = CliRunner()
 
 
@@ -19,7 +19,9 @@ def mock_dependencies(mocker, sample_coin):
     mock_provider.get_coins.return_value = [sample_coin]
     mocker.patch("src.main.build_provider", return_value=mock_provider)
 
-    mock_storage = mocker.Mock()
+    mock_storage = mocker.Mock(spec=AnalyticsStorage)
+    mock_storage.__enter__ = mocker.Mock(return_value=mock_storage)
+    mock_storage.__exit__ = mocker.Mock(return_value=False)
     mocker.patch("src.main.build_storage", return_value=mock_storage)
 
     mock_results = {
@@ -163,19 +165,14 @@ def test_build_storage_factory(mocker):
     assert storage == mock_storage_obj
 
 
-def test_list_snapshots_empty_db(mock_dependencies, mocker):
+def test_list_snapshots_empty_db(mock_dependencies, caplog):
     """Проверка случая, когда в базе нет снимков."""
-    # Настраиваем мок хранилища
     mock_dependencies["storage"].get_all_snapshots.return_value = []
 
-    # Мокаем именно объект console.print внутри main.py
-    mock_print = mocker.patch("src.main.console.print")
-    runner.invoke(app, ["list-snapshots"])
+    with caplog.at_level("WARNING"):
+        runner.invoke(app, ["list-snapshots"])
 
-    # Проверяем, что console.print был вызван с нужным текстом
-    # Используем call_args[0][0], чтобы достать строку из вызова
-    args, _ = mock_print.call_args
-    assert "База данных пуста" in args[0]
+    assert "База данных пуста" in caplog.text
 
 
 def test_list_snapshots_error_logging(mock_dependencies, caplog):
@@ -188,15 +185,11 @@ def test_list_snapshots_error_logging(mock_dependencies, caplog):
     assert "Ошибка при получении списка снимков: DB Crash" in caplog.text
 
 
-def test_compare_snapshots_not_found(mock_dependencies, mocker):
+def test_compare_snapshots_not_found(mock_dependencies, caplog):
     """Проверка случая, когда снимки для сравнения не найдены."""
-    # Настраиваем мок хранилища на возврат None
     mock_dependencies["storage"].get_snapshot_compare.return_value = None
 
-    # Мокаем console.print
-    mock_print = mocker.patch("src.main.console.print")
+    with caplog.at_level("WARNING"):
+        runner.invoke(app, ["compare-snapshots", "999", "1000"])
 
-    runner.invoke(app, ["compare-snapshots", "999", "1000"])
-
-    args, _ = mock_print.call_args
-    assert "Данные для снимков 999 и 1000 не найдены" in args[0]
+    assert "Данные для снимков 999 и 1000 не найдены" in caplog.text

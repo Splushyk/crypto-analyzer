@@ -29,7 +29,6 @@ class BaseStorage(ABC):
     Интерфейс хранилища данных.
 
     Обязательно реализует сохранение (save).
-    Методы аналитики являются опциональными.
     """
 
     @abstractmethod
@@ -37,21 +36,35 @@ class BaseStorage(ABC):
         """Сохраняет данные текущего анализа в долгосрочное хранилище."""
         pass
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+
+class AnalyticsStorage(BaseStorage):
+    """Расширение BaseStorage с поддержкой аналитических запросов."""
+
+    @abstractmethod
     def get_all_snapshots(self) -> list[dict]:
-        """(Опционально) Возвращает список всех сохраненных снимков."""
-        raise NotImplementedError("Это хранилище не поддерживает просмотр списка снимков.")
+        """Возвращает список всех сохраненных снимков."""
+        pass
 
-    def get_snapshot_comparison(self, snapshot_id_1: int, snapshot_id_2: int):
-        """(Опционально) Возвращает разницу цен между двумя снимками."""
-        raise NotImplementedError("Это хранилище не поддерживает аналитику.")
+    @abstractmethod
+    def get_snapshot_compare(self, snapshot_id_1: int, snapshot_id_2: int) -> list[dict]:
+        """Возвращает разницу цен между двумя снимками."""
+        pass
 
+    @abstractmethod
     def get_coin_history(self, symbol: str) -> list[dict]:
-        """(Опционально) Возвращает историю изменения цены конкретной монеты."""
-        raise NotImplementedError("Это хранилище не поддерживает аналитику.")
+        """Возвращает историю изменения цены конкретной монеты."""
+        pass
 
+    @abstractmethod
     def get_top_movers(self) -> dict[str, list[dict]]:
-        """(Опционально) Возвращает лидеров роста и падения за последний снимок."""
-        raise NotImplementedError("Это хранилище не поддерживает аналитику.")
+        """Возвращает лидеров роста и падения за последний снимок."""
+        pass
 
 
 class JsonStorage(BaseStorage):
@@ -87,7 +100,7 @@ class JsonStorage(BaseStorage):
         logger.info(f"Отчет успешно сохранен в JSON-файл: {self.filename}")
 
 
-class SqliteStorage(BaseStorage):
+class SqliteStorage(AnalyticsStorage):
     """Реляционное хранилище с поддержкой SQL-аналитики."""
 
     def __init__(self, db_path: str = "crypto_report.db"):
