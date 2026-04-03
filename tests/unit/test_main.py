@@ -20,6 +20,8 @@ def mock_dependencies(mocker, sample_coin):
     mocker.patch("src.main.build_provider", return_value=mock_provider)
 
     mock_storage = mocker.Mock()
+    mock_storage.__enter__ = mocker.Mock(return_value=mock_storage)
+    mock_storage.__exit__ = mocker.Mock(return_value=False)
     mocker.patch("src.main.build_storage", return_value=mock_storage)
 
     mock_results = {

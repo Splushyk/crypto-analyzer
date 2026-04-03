@@ -53,6 +53,12 @@ class BaseStorage(ABC):
         """(Опционально) Возвращает лидеров роста и падения за последний снимок."""
         raise NotImplementedError("Это хранилище не поддерживает аналитику.")
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
 
 class JsonStorage(BaseStorage):
     """Хранилище для записи результатов анализа в статичный JSON-файл."""
