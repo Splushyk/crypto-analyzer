@@ -7,6 +7,7 @@ import pytest
 from typer.testing import CliRunner
 import src.main
 from src.main import app
+from src.storage import AnalyticsStorage
 from src.providers import CMCProvider, GeckoProvider
 
 pytestmark = pytest.mark.unit
@@ -19,7 +20,7 @@ def mock_dependencies(mocker, sample_coin):
     mock_provider.get_coins.return_value = [sample_coin]
     mocker.patch("src.main.build_provider", return_value=mock_provider)
 
-    mock_storage = mocker.Mock()
+    mock_storage = mocker.Mock(spec=AnalyticsStorage)
     mock_storage.__enter__ = mocker.Mock(return_value=mock_storage)
     mock_storage.__exit__ = mocker.Mock(return_value=False)
     mocker.patch("src.main.build_storage", return_value=mock_storage)

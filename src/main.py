@@ -20,7 +20,7 @@ from src.api_client import ApiClient
 from src.analyzer import CryptoAnalyzer
 from src.parsers import GeckoParser, CMCParser
 from src.providers import CryptoProvider, GeckoProvider, CMCProvider
-from src.storage import BaseStorage, JsonStorage, SqliteStorage
+from src.storage import AnalyticsStorage, BaseStorage, JsonStorage, SqliteStorage
 from src.settings import settings, StorageType
 from src.visualizers import BaseVisualizer, ConsoleVisualizer
 
@@ -128,16 +128,16 @@ def list_snapshots():
     visualizer = ConsoleVisualizer()
 
     with build_storage() as storage:
+        if not isinstance(storage, AnalyticsStorage):
+            console.print("[red]Выбранный тип хранилища не поддерживает просмотр снимков.[/red]")
+            raise typer.Exit(code=1)
+
         try:
-            # Убеждаемся, что работаем с базой, которая поддерживает списки
-            if hasattr(storage, 'get_all_snapshots'):
-                snapshots = storage.get_all_snapshots()
-                if not snapshots:
-                    console.print("[yellow]База данных пуста.[/yellow]")
-                    return
-                visualizer.display_snapshots(snapshots)
-            else:
-                console.print("[red]Выбранный тип хранилища не поддерживает просмотр снимков.[/red]")
+            snapshots = storage.get_all_snapshots()
+            if not snapshots:
+                console.print("[yellow]База данных пуста.[/yellow]")
+                return
+            visualizer.display_snapshots(snapshots)
         except Exception as e:
             logger.error(f"Ошибка при получении списка снимков: {e}")
 
@@ -148,15 +148,16 @@ def compare_snapshots(id1: int, id2: int):
     visualizer = ConsoleVisualizer()
 
     with build_storage() as storage:
+        if not isinstance(storage, AnalyticsStorage):
+            console.print("[red]Это хранилище не поддерживает сравнение.[/red]")
+            raise typer.Exit(code=1)
+
         try:
-            if hasattr(storage, 'get_snapshot_compare'):
-                diff = storage.get_snapshot_compare(id1, id2)
-                if not diff:
-                    console.print(f"[yellow]Данные для снимков {id1} и {id2} не найдены.[/yellow]")
-                    return
-                visualizer.display_comparison(diff, id1, id2)
-            else:
-                console.print("[red]Это хранилище не поддерживает сравнение.[/red]")
+            diff = storage.get_snapshot_compare(id1, id2)
+            if not diff:
+                console.print(f"[yellow]Данные для снимков {id1} и {id2} не найдены.[/yellow]")
+                return
+            visualizer.display_comparison(diff, id1, id2)
         except Exception as e:
             logger.error(f"Ошибка при сравнении снимков: {e}")
 
