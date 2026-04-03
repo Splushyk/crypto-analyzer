@@ -129,13 +129,13 @@ def list_snapshots():
 
     with build_storage() as storage:
         if not isinstance(storage, AnalyticsStorage):
-            console.print("[red]Выбранный тип хранилища не поддерживает просмотр снимков.[/red]")
+            logger.error("Выбранный тип хранилища не поддерживает просмотр снимков.")
             raise typer.Exit(code=1)
 
         try:
             snapshots = storage.get_all_snapshots()
             if not snapshots:
-                console.print("[yellow]База данных пуста.[/yellow]")
+                logger.warning("База данных пуста.")
                 return
             visualizer.display_snapshots(snapshots)
         except Exception as e:
@@ -149,13 +149,13 @@ def compare_snapshots(id1: int, id2: int):
 
     with build_storage() as storage:
         if not isinstance(storage, AnalyticsStorage):
-            console.print("[red]Это хранилище не поддерживает сравнение.[/red]")
+            logger.error("Это хранилище не поддерживает сравнение.")
             raise typer.Exit(code=1)
 
         try:
             diff = storage.get_snapshot_compare(id1, id2)
             if not diff:
-                console.print(f"[yellow]Данные для снимков {id1} и {id2} не найдены.[/yellow]")
+                logger.warning(f"Данные для снимков {id1} и {id2} не найдены.")
                 return
             visualizer.display_comparison(diff, id1, id2)
         except Exception as e:
