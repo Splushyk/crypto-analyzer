@@ -119,8 +119,6 @@ dependencies = [
     { name = "librt" },
     { name = "markdown-it-py" },
     { name = "mdurl" },
-    { name = "mypy" },
-    { name = "mypy-extensions" },
     { name = "pathspec" },
     { name = "pygments" },
     { name = "python-dotenv" },
@@ -134,6 +132,14 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "freezegun" },
+    { name = "mypy" },
+    { name = "mypy-extensions" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "pytest-mock" },
+]
+test = [
     { name = "freezegun" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -151,8 +157,6 @@ requires-dist = [
     { name = "librt", specifier = "==0.8.1" },
     { name = "markdown-it-py", specifier = "==4.0.0" },
     { name = "mdurl", specifier = "==0.1.2" },
-    { name = "mypy", specifier = "==1.19.1" },
-    { name = "mypy-extensions", specifier = "==1.1.0" },
     { name = "pathspec", specifier = "==1.0.4" },
     { name = "pygments", specifier = "==2.19.2" },
     { name = "python-dotenv", specifier = "==1.2.2" },
@@ -166,6 +170,14 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "freezegun", specifier = ">=1.5.5" },
+    { name = "mypy", specifier = ">=1.19.1" },
+    { name = "mypy-extensions", specifier = "==1.1.0" },
+    { name = "pytest", specifier = ">=9.0.2" },
+    { name = "pytest-cov", specifier = ">=7.0.0" },
+    { name = "pytest-mock", specifier = ">=3.15.1" },
+]
+test = [
     { name = "freezegun", specifier = ">=1.5.5" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-cov", specifier = ">=7.0.0" },

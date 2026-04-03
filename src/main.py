@@ -22,10 +22,7 @@ from src.parsers import GeckoParser, CMCParser
 from src.providers import CryptoProvider, GeckoProvider, CMCProvider
 from src.storage import BaseStorage, JsonStorage, SqliteStorage
 from src.settings import settings, StorageType
-from src.visualizers import BaseVisualizer, ConsoleVisualizer, JsonVisualizer, CsvVisualizer
-
-JSON_REPORT_FILENAME = "crypto_report.json"
-CSV_REPORT_FILENAME = "crypto_report.csv"
+from src.visualizers import BaseVisualizer, ConsoleVisualizer
 
 load_dotenv()
 
@@ -52,8 +49,6 @@ PROVIDERS: dict[str, Callable[[], CryptoProvider]] = {
 
 VISUALIZERS: dict[str, Callable[[], BaseVisualizer]] = {
     "console": lambda: ConsoleVisualizer(),
-    "json": lambda: JsonVisualizer(filename=JSON_REPORT_FILENAME),
-    "csv": lambda: CsvVisualizer(filename=CSV_REPORT_FILENAME),
 }
 
 STORAGES: dict[StorageType, Callable[[], BaseStorage]] = {

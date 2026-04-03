@@ -6,7 +6,7 @@
 import pytest
 from typer.testing import CliRunner
 import src.main
-from src.main import app, JSON_REPORT_FILENAME, CSV_REPORT_FILENAME
+from src.main import app
 from src.providers import CMCProvider, GeckoProvider
 
 pytestmark = pytest.mark.unit
@@ -126,16 +126,6 @@ def test_main_list_snapshots_success(mock_dependencies, mocker):
     assert result.exit_code == 0
     # Проверяем вызов через инстанс, который создал сам mocker.patch
     mock_viz_class.return_value.display_snapshots.assert_called_once()
-
-
-@pytest.mark.parametrize("output, expected_filename", [
-    ("json", JSON_REPORT_FILENAME),
-    ("csv", CSV_REPORT_FILENAME),
-])
-def test_build_visualizer_parameters(output, expected_filename):
-    """Проверка параметров инициализации визуализаторов."""
-    visualizer = src.main.build_visualizer(output)
-    assert visualizer.filename == expected_filename
 
 
 def test_main_compare_success(mock_dependencies, mocker):
