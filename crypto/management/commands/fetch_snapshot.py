@@ -26,6 +26,7 @@ class Command(BaseCommand):
         )
 
     def _build_provider(self, source):
+        """Создаёт и возвращает провайдер данных по имени источника."""
         if source == 'coingecko':
             return GeckoProvider(
                 client=ApiClient(base_url=COINGECKO_URL),
@@ -45,6 +46,7 @@ class Command(BaseCommand):
         raise ValueError(f"Неизвестный источник: {source}")
 
     def _save_snapshot(self, coins, total_cap):
+        """Сохраняет снимок рынка и цены монет в БД."""
         snapshot = Snapshot.objects.create(total_market_cap=total_cap)
         CoinPrice.objects.bulk_create([
             CoinPrice(
@@ -59,6 +61,7 @@ class Command(BaseCommand):
         ])
 
     def handle(self, *args, **options):
+        """Точка входа команды: получает данные и сохраняет снимок в БД."""
         source = options['source'].lower()
         self.stdout.write(f"Выбран источник: {source}")
 
