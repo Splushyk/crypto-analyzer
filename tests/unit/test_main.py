@@ -10,7 +10,6 @@ from src.main import app
 from src.storage import AnalyticsStorage
 from src.providers import CMCProvider, GeckoProvider
 
-pytestmark = pytest.mark.unit
 runner = CliRunner()
 
 

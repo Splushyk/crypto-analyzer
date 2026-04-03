@@ -15,7 +15,6 @@ import requests
 
 from src.api_client import ApiClient
 
-pytestmark = pytest.mark.unit
 
 @pytest.mark.parametrize("base_url, headers", [
     ("https://fake-api.com", {"Some_item": "some_value"}),

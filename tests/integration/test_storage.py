@@ -16,7 +16,6 @@ import pytest
 from src.models import Cryptocurrency
 from src.storage import JsonStorage
 
-pytestmark = pytest.mark.integration
 
 
 def test_sqlite_save_and_get_all_snapshots(sqlite_storage, sample_coin, sample_results):

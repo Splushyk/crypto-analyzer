@@ -1,5 +1,7 @@
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from src.api_client import ApiClient
 from src.models import Cryptocurrency
 
