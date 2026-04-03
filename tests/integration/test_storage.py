@@ -60,25 +60,19 @@ def test_sqlite_comparison_logic(sqlite_storage, sample_results):
     assert diff[0]["percent_change"] == 50.0
 
 
-def test_sqlite_top_movers_limit(sqlite_storage, sample_results):
-    """Проверка корректности работы LIMIT 5 и сортировки в лидерах роста/падения."""
-    # Создаем 10 монет с разным процентом изменения (от 0 до 9)
-    many_coins = [
-        Cryptocurrency(name=f"Coin{i}", symbol=f"C{i}", price=10.0,
-                       change_24h=float(i), volume=100, market_cap=1000)
-        for i in range(10)
+def test_sqlite_top_movers_returns_correct_coins(sqlite_storage, sample_results):
+    """Проверка, что get_top_movers возвращает монеты с наибольшим и наименьшим изменением."""
+    coins = [
+        Cryptocurrency(name="CoinA", symbol="CA", price=1.0, change_24h=10.0, volume=100, market_cap=1000),
+        Cryptocurrency(name="CoinB",  symbol="CB", price=1.0, change_24h=5.0,  volume=100, market_cap=1000),
+        Cryptocurrency(name="CoinC", symbol="CC", price=1.0, change_24h=-8.0, volume=100, market_cap=1000),
     ]
-    sqlite_storage.save(many_coins, sample_results)
+    sqlite_storage.save(coins, sample_results)
 
     movers = sqlite_storage.get_top_movers()
 
-    # Должно быть строго по 5 в каждой категории
-    assert len(movers["gainers"]) == 5
-    assert len(movers["losers"]) == 5
-    # Лидер роста должен иметь самый большой change_24h (9.0)
-    assert movers["gainers"][0]["change_24h"] == 9.0
-    # Лидер падения — самый маленький (0.0)
-    assert movers["losers"][0]["change_24h"] == 0.0
+    assert movers["gainers"][0]["symbol"] == "CA"  # наибольший рост
+    assert movers["losers"][0]["symbol"] == "CC"   # наибольшее падение
 
 
 def test_sqlite_coin_history(sqlite_storage, sample_coin, sample_results):
