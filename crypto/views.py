@@ -10,7 +10,7 @@ class SnapshotPagination(PageNumberPagination):
 
 
 class SnapshotViewSet(viewsets.ModelViewSet):
-    queryset = Snapshot.objects.all()
+    queryset = Snapshot.objects.all().order_by('-created_at')
     serializer_class = SnapshotSerializer
     pagination_class = SnapshotPagination
     http_method_names = ['get', 'head', 'options']
@@ -22,6 +22,6 @@ class CoinPriceHistoryView(generics.ListAPIView):
     def get_queryset(self):
         symbol = self.request.query_params.get('symbol')
         if symbol is None:
-            return CoinPrice.objects.all()
+            return CoinPrice.objects.all().order_by('-snapshot__created_at')
 
-        return CoinPrice.objects.filter(symbol=symbol)
+        return CoinPrice.objects.filter(symbol=symbol).order_by('-snapshot__created_at')
