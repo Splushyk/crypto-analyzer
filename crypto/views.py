@@ -1,3 +1,10 @@
-from django.shortcuts import render
+from rest_framework import viewsets
 
-# Create your views here.
+from crypto.models import Snapshot
+from crypto.serializers import SnapshotSerializer
+
+
+class SnapshotViewSet(viewsets.ModelViewSet):
+    queryset = Snapshot.objects.all()
+    serializer_class = SnapshotSerializer
+    http_method_names = ['get', 'head', 'options']
