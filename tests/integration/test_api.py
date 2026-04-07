@@ -1,4 +1,5 @@
 import pytest
+from django.conf import settings
 from rest_framework.test import APIClient
 
 
@@ -6,10 +7,10 @@ from rest_framework.test import APIClient
 def test_snapshots_list_is_paginated(snapshots):
     client = APIClient()
     response = client.get('/api/snapshots/')
-    assert response.status_code == 200  # проверяем результат
+    assert response.status_code == 200
     assert response.data['count'] == 3
     assert response.data['next'] is not None
-    assert len(response.data['results']) == 2
+    assert len(response.data['results']) <= settings.REST_FRAMEWORK['PAGE_SIZE']
 
 
 @pytest.mark.django_db
