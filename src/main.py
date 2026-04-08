@@ -1,3 +1,13 @@
+"""
+Точка входа в приложение и координация рабочих процессов.
+
+Модуль отвечает за:
+1. Конфигурацию CLI-интерфейса (на базе Typer).
+2. Инициализацию компонентов через фабричные методы (Providers, Visualizers).
+3. Управление основным циклом программы: получение данных -> анализ -> вывод.
+4. Централизованную обработку исключений и логирование ошибок.
+"""
+
 import logging
 import os
 from collections.abc import Callable
@@ -11,6 +21,9 @@ from src.analyzer import CryptoAnalyzer
 from src.parsers import GeckoParser, CMCParser
 from src.providers import CryptoProvider, GeckoProvider, CMCProvider
 from src.visualizers import BaseVisualizer, ConsoleVisualizer, JsonVisualizer, CsvVisualizer
+
+JSON_REPORT_FILENAME = "crypto_report.json"
+CSV_REPORT_FILENAME = "crypto_report.csv"
 
 load_dotenv()
 
@@ -37,8 +50,8 @@ PROVIDERS: dict[str, Callable[[], CryptoProvider]] = {
 
 VISUALIZERS: dict[str, Callable[[], BaseVisualizer]] = {
     "console": lambda: ConsoleVisualizer(),
-    "json": lambda: JsonVisualizer(filename="crypto_report.json"),
-    "csv": lambda: CsvVisualizer(filename="crypto_report.csv"),
+    "json": lambda: JsonVisualizer(filename=JSON_REPORT_FILENAME),
+    "csv": lambda: CsvVisualizer(filename=CSV_REPORT_FILENAME),
 }
 
 
@@ -70,9 +83,9 @@ def build_visualizer(output: str) -> BaseVisualizer:
 
 @app.command()
 def main(
-    source: str = typer.Option("coingecko", help="Источник данных: coingecko или coinmarketcap"),
-    output: str = typer.Option("console", help="Формат вывода: console, json или csv"),
-    top: int = typer.Option(3, help="Количество лидеров роста и падения")
+        source: str = typer.Option("coingecko", help="Источник данных: coingecko или coinmarketcap"),
+        output: str = typer.Option("console", help="Формат вывода: console, json или csv"),
+        top: int = typer.Option(3, min=1, max=50, help="Количество лидеров роста и падения (от 1 до 50)")
 ):
     """
     Точка входа CLI. Загружает данные, анализирует и отображает результаты.

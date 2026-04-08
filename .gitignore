@@ -4,3 +4,7 @@
 .mypy_cache/
 __pycache__/
 .python-version
+.coverage
+htmlcov/
+crypto_report.csv
+crypto_report.json

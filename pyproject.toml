@@ -14,8 +14,6 @@ dependencies = [
     "librt==0.8.1",
     "markdown-it-py==4.0.0",
     "mdurl==0.1.2",
-    "mypy==1.19.1",
-    "mypy-extensions==1.1.0",
     "pathspec==1.0.4",
     "pygments==2.19.2",
     "python-dotenv==1.2.2",
@@ -25,4 +23,30 @@ dependencies = [
     "typer==0.24.1",
     "typing-extensions==4.15.0",
     "urllib3==2.6.3",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.19.1",
+    "mypy-extensions==1.1.0",
+    { include-group = "test" },
+]
+
+test = [
+    "freezegun>=1.5.5",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+    "pytest-mock>=3.15.1",
+]
+
+[tool.pytest.ini_options]
+pythonpath = "."
+testpaths = ["tests"]
+addopts = [
+    "-v",
+    "-ra",
+    "--tb=short",
+    "--strict-markers",
+    "--cov=src",
+    "--cov-report=term-missing",
 ]

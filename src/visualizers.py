@@ -1,3 +1,7 @@
+"""
+Модуль отвечает за отображение результатов анализа.
+"""
+
 import csv
 import json
 import logging
