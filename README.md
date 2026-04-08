@@ -45,6 +45,11 @@
 **Основные команды**
 * `python manage.py fetch_snapshot --source [coingecko|cmc]` — сбор данных из API и сохранение в БД.
 
+**REST API (Django REST Framework)**
+* `GET /api/snapshots/` — список снимков с пагинацией
+* `GET /api/snapshots/{id}/` — детали снимка с вложенными ценами
+* `GET /api/coins/?symbol=BTC` — история цены монеты по всем снимкам
+
 ### Запуск тестов:
 ```bash
 # Общая команда (конфигурация запуска настроена в pyproject.toml)
