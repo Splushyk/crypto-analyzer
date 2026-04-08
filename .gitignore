@@ -9,4 +9,8 @@ htmlcov/
 crypto_report.csv
 crypto_report.json
 crypto_report.db
+
+# Django
 db.sqlite3
+/staticfiles/
+/media/
