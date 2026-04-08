@@ -16,6 +16,7 @@ from src.models import Cryptocurrency
 from src.parsers import GeckoParser, CMCParser
 
 
+
 @pytest.mark.parametrize("parser_class, data_fixture", [
     (GeckoParser, "gecko_raw_data"),
     (CMCParser, "cmc_raw_data"),

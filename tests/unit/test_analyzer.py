@@ -15,6 +15,7 @@ from src.analyzer import CryptoAnalyzer
 from src.models import Cryptocurrency
 
 
+
 def test_analyze_data():
     coins = [
         Cryptocurrency("Coin1", "C1", 10.0, 1.0, 100.0, 10.0),

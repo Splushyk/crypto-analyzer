@@ -7,6 +7,7 @@ import pytest
 from src.models import Cryptocurrency
 
 
+
 def test_cryptocurrency_model_creation(sample_coin):
     assert sample_coin.name == "SomeCoin"
     assert sample_coin.symbol == "SC"
