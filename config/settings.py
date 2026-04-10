@@ -138,3 +138,6 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "ROTATE_REFRESH_TOKENS": True,
  }
+
+# Провайдер для валидации символов криптовалют
+CRYPTO_PROVIDER = env('CRYPTO_PROVIDER', default='coingecko')

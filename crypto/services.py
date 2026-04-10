@@ -4,6 +4,9 @@
 Не зависит от DRF — работает только с Django ORM и стандартной библиотекой.
 """
 
+import os
+
+from django.conf import settings
 from django.db import IntegrityError
 
 from crypto.models import WatchlistItem
@@ -31,8 +34,8 @@ def remove_from_watchlist(user, symbol):
     return True if deleted_item[0] == 1 else False
 
 
-def validate_symbol(symbol):
-    """Проверяет существование символа через CoinGecko API. Возвращает (symbol, name)."""
+def _validate_coingecko(symbol):
+    """Проверяет существование символа через CoinGecko API."""
     client = ApiClient(base_url="https://api.coingecko.com/api/v3")
     data = client.get_json(endpoint="/search", params={"query": symbol})
 
@@ -43,9 +46,44 @@ def validate_symbol(symbol):
     raise SymbolNotFoundError
 
 
+def _validate_cmc(symbol):
+    """Проверяет существование символа через CoinMarketCap API."""
+    client = ApiClient(
+        base_url="https://pro-api.coinmarketcap.com/v1",
+        headers={"X-CMC_PRO_API_KEY": os.getenv("CMC_API_KEY")},
+    )
+    data = client.get_json(
+        endpoint="/cryptocurrency/map",
+        params={"symbol": symbol.upper()},
+    )
+
+    for coin in data.get("data", []):
+        if coin["symbol"] == symbol.upper():
+            return coin["symbol"], coin["name"]
+
+    raise SymbolNotFoundError
+
+
+VALIDATORS = {
+    "coingecko": _validate_coingecko,
+    "coinmarketcap": _validate_cmc,
+}
+
+
+def validate_symbol(symbol):
+    """Проверяет существование символа через API выбранной биржи. Возвращает (symbol, name)."""
+    provider = settings.CRYPTO_PROVIDER
+    validator = VALIDATORS.get(provider)
+
+    if validator is None:
+        raise ValueError(f"Неизвестный провайдер: {provider}")
+
+    return validator(symbol)
+
+
 def add_to_watchlist(user, symbol):
     """Валидирует символ и добавляет монету в watchlist пользователя."""
-    coin_info = validate_symbol(symbol)  # если не найден, сработает SymbolNotFoundError
+    coin_info = validate_symbol(symbol)
 
     try:
         item = WatchlistItem.objects.create(
@@ -54,6 +92,6 @@ def add_to_watchlist(user, symbol):
             coin_name=coin_info[1],
         )
     except IntegrityError:
-        raise ExistInWatchlistError  # дубликат UniqueConstraint сработал
+        raise ExistInWatchlistError
 
     return item
