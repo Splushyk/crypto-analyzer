@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Snapshot, CoinPrice
+from .models import Snapshot, CoinPrice, WatchlistItem
 
 
 class CoinPriceInline(admin.TabularInline):
@@ -81,6 +81,14 @@ class CoinPriceAdmin(admin.ModelAdmin):
         # Аналогично: сначала форматируем число
         change_text = f"{obj.change_24h:+.2f}%"
         return format_html('<span style="color: {};">{}</span>', color, change_text)
+
+
+@admin.register(WatchlistItem)
+class WatchlistItemAdmin(admin.ModelAdmin):
+    list_display = ('user', 'symbol', 'coin_name', 'added_at')
+    list_filter = ('user', 'symbol', 'added_at')
+    search_fields = ('user__username', 'symbol')
+    readonly_fields = ('added_at',)
 
 
 admin.site.site_header = "Панель управления Crypto Analyzer"  # Текст в синей шапке
