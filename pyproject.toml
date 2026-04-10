@@ -61,6 +61,7 @@ addopts = [
     "--tb=short",
     "--strict-markers",
     "--cov=src",
+    "--cov=crypto",
     "--cov-report=term-missing",
 ]
 DJANGO_SETTINGS_MODULE = "config.settings"
