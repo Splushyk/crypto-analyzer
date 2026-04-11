@@ -1,5 +1,7 @@
 import pytest
 
+from rest_framework.test import APIClient
+
 from crypto.models import Snapshot, CoinPrice
 
 pytestmark = pytest.mark.integration
@@ -44,3 +46,29 @@ def coins(snapshots):
         market_cap=20000,
     )
     return c1_snap1, c1_snap2, c2_snap1
+
+
+@pytest.fixture
+def auth_client_a(user_a):
+    """APIClient, аутентифицированный как user_a через JWT."""
+    client = APIClient()
+    response = client.post('/api/token/', {
+        'username': 'name_a',
+        'password': 'password123',
+    })
+    token = response.data['access']
+    client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+    return client
+
+
+@pytest.fixture
+def auth_client_b(user_b):
+    """APIClient, аутентифицированный как user_b через JWT."""
+    client = APIClient()
+    response = client.post('/api/token/', {
+        'username': 'name_b',
+        'password': 'password456',
+    })
+    token = response.data['access']
+    client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+    return client

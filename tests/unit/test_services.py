@@ -6,8 +6,6 @@ Unit-тесты сервисного слоя watchlist.
 
 import pytest
 
-from django.contrib.auth.models import User
-
 from crypto.models import WatchlistItem
 from crypto.services import (
     validate_symbol,
@@ -19,47 +17,6 @@ from crypto.services import (
 )
 
 pytestmark = pytest.mark.unit
-
-
-# Фикстуры
-
-@pytest.fixture
-def user_a(db):
-    """Создаёт тестового пользователя."""
-    return User.objects.create_user(username="name_a", password="password123")
-
-
-@pytest.fixture
-def user_b(db):
-    """Создаёт второго тестового пользователя."""
-    return User.objects.create_user(username="name_b", password="password456")
-
-
-@pytest.fixture
-def mock_api_symbol_found(mocker):
-    """
-    Мокает ApiClient так, чтобы API нашёл монету BTC.
-    mocker.patch подменяет класс ApiClient внутри модуля crypto.services —
-    чтобы при вызове validate_symbol не было реального HTTP-запроса.
-    """
-    fake_response = {
-        "coins": [
-            {"symbol": "BTC", "name": "Bitcoin", "id": "bitcoin"},
-        ]
-    }
-    mock_client = mocker.patch("crypto.services.ApiClient")
-    # mock_client() — это экземпляр, .get_json() — его метод
-    mock_client.return_value.get_json.return_value = fake_response
-    return mock_client
-
-
-@pytest.fixture
-def mock_api_symbol_not_found(mocker):
-    """Мокает ApiClient так, чтобы API вернул пустой список."""
-    fake_response = {"coins": []}
-    mock_client = mocker.patch("crypto.services.ApiClient")
-    mock_client.return_value.get_json.return_value = fake_response
-    return mock_client
 
 
 # Тесты validate_symbol
