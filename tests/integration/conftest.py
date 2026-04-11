@@ -4,8 +4,6 @@ from rest_framework.test import APIClient
 
 from crypto.models import Snapshot, CoinPrice
 
-pytestmark = pytest.mark.integration
-
 
 @pytest.fixture
 def snapshots(db):

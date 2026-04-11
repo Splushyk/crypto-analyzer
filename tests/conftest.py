@@ -6,6 +6,15 @@ from src.models import Cryptocurrency
 from src.storage import SqliteStorage
 
 
+def pytest_collection_modifyitems(items):
+    for item in items:
+        path = str(item.fspath)
+        if "/unit/" in path:
+            item.add_marker(pytest.mark.unit)
+        elif "/integration/" in path:
+            item.add_marker(pytest.mark.integration)
+
+
 @pytest.fixture
 def sample_coin():
     """

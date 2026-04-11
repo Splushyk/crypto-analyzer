@@ -16,8 +16,6 @@ from crypto.services import (
     ExistInWatchlistError,
 )
 
-pytestmark = pytest.mark.unit
-
 
 # Тесты validate_symbol
 
