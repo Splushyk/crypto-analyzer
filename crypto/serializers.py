@@ -26,3 +26,10 @@ class WatchlistSerializer(serializers.ModelSerializer):
 
 class AddToWatchlistSerializer(serializers.Serializer):
     symbol = serializers.CharField(max_length=20)
+
+
+class MarketStatsSerializer(serializers.Serializer):
+    min_price = serializers.DecimalField(max_digits=20, decimal_places=6)
+    max_price = serializers.DecimalField(max_digits=20, decimal_places=6)
+    avg_price = serializers.DecimalField(max_digits=22, decimal_places=8)
+    total_market_cap = serializers.DecimalField(max_digits=25, decimal_places=2)

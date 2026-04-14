@@ -5,9 +5,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from crypto.models import Snapshot, CoinPrice
-from crypto.serializers import SnapshotSerializer, CoinPriceSerializer, WatchlistSerializer, AddToWatchlistSerializer
+from crypto.serializers import SnapshotSerializer, CoinPriceSerializer, WatchlistSerializer, AddToWatchlistSerializer, \
+    MarketStatsSerializer
 from crypto.services import get_user_watchlist, add_to_watchlist, SymbolNotFoundError, ExistInWatchlistError, \
-    remove_from_watchlist
+    remove_from_watchlist, get_market_stats
 
 
 class SnapshotPagination(PageNumberPagination):
@@ -75,3 +76,15 @@ class WatchlistDetailView(APIView):
                 {"error": "Такой монеты не было в вашем списке отслеживаемых монет"},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+
+class MarketStatsView(APIView):
+    def get(self, request):
+        stats = get_market_stats()
+        if stats is None:
+            return Response(
+                {"error": "Нет данных для анализа"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        serializer = MarketStatsSerializer(stats)
+        return Response(serializer.data)

@@ -8,9 +8,33 @@ import os
 
 from django.conf import settings
 from django.db import IntegrityError
+from django.db.models import Min, Max, Avg, Sum
 
-from crypto.models import WatchlistItem
+from crypto.models import CoinPrice, Snapshot, WatchlistItem
 from src.api_client import ApiClient
+
+
+def get_market_stats():
+    """
+    Агрегированная статистика цен по последнему снимку рынка.
+    Возвращает словарь с min/max/avg цены и суммой капитализации,
+    либо None, если нет ни одного снимка или снимок пустой.
+    """
+    latest_snapshot = Snapshot.objects.order_by('-created_at').first()
+    if latest_snapshot is None:
+        return None
+
+    stats = CoinPrice.objects.filter(snapshot=latest_snapshot).aggregate(
+        min_price=Min('price'),
+        max_price=Max('price'),
+        avg_price=Avg('price'),
+        total_market_cap=Sum('market_cap'),
+    )
+
+    if stats['min_price'] is None:
+        return None
+
+    return stats
 
 
 class SymbolNotFoundError(Exception):
