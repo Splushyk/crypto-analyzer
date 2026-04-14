@@ -19,3 +19,12 @@ def test_coin_price_history(coins):
     response = client.get('/api/coins/?symbol=C1')
     assert response.status_code == 200
     assert response.data['count'] == 2
+
+
+def test_snapshots_list_uses_prefetch_related(coins, django_assert_num_queries):
+    """N+1 guard: список снимков должен делать фиксированное число SQL-запросов
+    независимо от количества снимков и связанных цен."""
+    client = APIClient()
+    with django_assert_num_queries(3):
+        response = client.get('/api/snapshots/')
+    assert response.status_code == 200
