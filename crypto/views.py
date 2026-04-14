@@ -15,7 +15,7 @@ class SnapshotPagination(PageNumberPagination):
 
 
 class SnapshotViewSet(viewsets.ModelViewSet):
-    queryset = Snapshot.objects.all().order_by('-created_at')
+    queryset = Snapshot.objects.order_by('-created_at').prefetch_related('prices')
     serializer_class = SnapshotSerializer
     pagination_class = SnapshotPagination
     http_method_names = ['get', 'head', 'options']
