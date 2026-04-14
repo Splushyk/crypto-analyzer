@@ -1,9 +1,7 @@
-import pytest
 from django.conf import settings
 from rest_framework.test import APIClient
 
 
-@pytest.mark.django_db
 def test_snapshots_list_is_paginated(snapshots):
     client = APIClient()
     response = client.get('/api/snapshots/')
@@ -13,7 +11,6 @@ def test_snapshots_list_is_paginated(snapshots):
     assert len(response.data['results']) <= settings.REST_FRAMEWORK['PAGE_SIZE']
 
 
-@pytest.mark.django_db
 def test_coin_price_history(coins):
     client = APIClient()
     response = client.get('/api/coins/?symbol=C1')
