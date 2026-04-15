@@ -38,3 +38,7 @@ class MarketStatsSerializer(serializers.Serializer):
 class TopMoversSerializer(serializers.Serializer):
     top_gainers = CoinPriceSerializer(many=True, read_only=True)
     top_losers = CoinPriceSerializer(many=True, read_only=True)
+
+
+class VolumeLeadersSerializer(serializers.Serializer):
+    leaders = CoinPriceSerializer(many=True, read_only=True)

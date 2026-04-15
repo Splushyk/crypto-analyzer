@@ -57,6 +57,25 @@ def get_top_movers():
     }
 
 
+def get_volume_leaders():
+    """
+    Топ-10 монет по объёму торгов за последний снимок.
+    Возвращает словарь с queryset, либо None, если нет ни одного снимка
+    или последний снимок пустой.
+    """
+    latest_snapshot = Snapshot.objects.order_by('-created_at').first()
+    if latest_snapshot is None:
+        return None
+
+    prices = CoinPrice.objects.filter(snapshot=latest_snapshot)
+    if not prices.exists():
+        return None
+
+    return {
+        "leaders": prices.order_by('-volume')[:10],
+    }
+
+
 class SymbolNotFoundError(Exception):
     """Символ не найден на бирже."""
     pass

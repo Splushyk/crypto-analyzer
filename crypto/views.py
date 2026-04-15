@@ -6,9 +6,9 @@ from rest_framework.views import APIView
 
 from crypto.models import Snapshot, CoinPrice
 from crypto.serializers import SnapshotSerializer, CoinPriceSerializer, WatchlistSerializer, AddToWatchlistSerializer, \
-    MarketStatsSerializer, TopMoversSerializer
+    MarketStatsSerializer, TopMoversSerializer, VolumeLeadersSerializer
 from crypto.services import get_user_watchlist, add_to_watchlist, SymbolNotFoundError, ExistInWatchlistError, \
-    remove_from_watchlist, get_market_stats, get_top_movers
+    remove_from_watchlist, get_market_stats, get_top_movers, get_volume_leaders
 
 
 class SnapshotPagination(PageNumberPagination):
@@ -99,4 +99,16 @@ class TopMoversView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
         serializer = TopMoversSerializer(tops)
+        return Response(serializer.data)
+
+
+class VolumeLeadersView(APIView):
+    def get(self, request):
+        leaders = get_volume_leaders()
+        if leaders is None:
+            return Response(
+                {"error": "Нет данных для анализа"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        serializer = VolumeLeadersSerializer(leaders)
         return Response(serializer.data)
