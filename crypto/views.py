@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 
 from crypto.models import Snapshot, CoinPrice
 from crypto.serializers import SnapshotSerializer, CoinPriceSerializer, WatchlistSerializer, AddToWatchlistSerializer, \
-    MarketStatsSerializer, TopMoversSerializer, VolumeLeadersSerializer
+    MarketStatsSerializer, TopMoversSerializer, VolumeLeadersSerializer, CoinPriceFilterSerializer
 from crypto.services import get_user_watchlist, add_to_watchlist, SymbolNotFoundError, ExistInWatchlistError, \
     remove_from_watchlist, get_market_stats, get_top_movers, get_volume_leaders
 
@@ -26,11 +26,18 @@ class CoinPriceHistoryView(generics.ListAPIView):
     serializer_class = CoinPriceSerializer
 
     def get_queryset(self):
-        symbol = self.request.query_params.get('symbol')
-        if symbol is None:
-            return CoinPrice.objects.all().order_by('-snapshot__created_at')
+        filter_serializer = CoinPriceFilterSerializer(data=self.request.query_params)
+        filter_serializer.is_valid(raise_exception=True)
+        filters = filter_serializer.validated_data
 
-        return CoinPrice.objects.filter(symbol=symbol).order_by('-snapshot__created_at')
+        queryset = CoinPrice.objects.all().order_by('-snapshot__created_at', '-id')
+        if 'symbol' in filters:
+            queryset = queryset.filter(symbol=filters['symbol'])
+        if 'min_price' in filters:
+            queryset = queryset.filter(price__gte=filters['min_price'])
+        if 'max_price' in filters:
+            queryset = queryset.filter(price__lte=filters['max_price'])
+        return queryset
 
 
 class WatchlistView(APIView):

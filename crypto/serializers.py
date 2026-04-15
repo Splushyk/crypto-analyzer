@@ -42,3 +42,9 @@ class TopMoversSerializer(serializers.Serializer):
 
 class VolumeLeadersSerializer(serializers.Serializer):
     leaders = CoinPriceSerializer(many=True, read_only=True)
+
+
+class CoinPriceFilterSerializer(serializers.Serializer):
+    symbol = serializers.CharField(required=False)
+    min_price = serializers.DecimalField(max_digits=20, decimal_places=6, required=False)
+    max_price = serializers.DecimalField(max_digits=20, decimal_places=6, required=False)
