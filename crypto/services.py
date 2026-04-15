@@ -37,6 +37,26 @@ def get_market_stats():
     return stats
 
 
+def get_top_movers():
+    """
+    Топ-5 растущих и топ-5 падающих монет по change_24h за последний снимок.
+    Возвращает словарь с двумя querysets, или None, если нет ни одного снимка
+    или последний снимок пустой.
+    """
+    latest_snapshot = Snapshot.objects.order_by('-created_at').first()
+    if latest_snapshot is None:
+        return None
+
+    prices = CoinPrice.objects.filter(snapshot=latest_snapshot)
+    if not prices.exists():
+        return None
+
+    return {
+        "top_gainers": prices.order_by('-change_24h')[:5],
+        "top_losers": prices.order_by('change_24h')[:5],
+    }
+
+
 class SymbolNotFoundError(Exception):
     """Символ не найден на бирже."""
     pass

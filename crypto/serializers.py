@@ -33,3 +33,8 @@ class MarketStatsSerializer(serializers.Serializer):
     max_price = serializers.DecimalField(max_digits=20, decimal_places=6)
     avg_price = serializers.DecimalField(max_digits=22, decimal_places=8)
     total_market_cap = serializers.DecimalField(max_digits=25, decimal_places=2)
+
+
+class TopMoversSerializer(serializers.Serializer):
+    top_gainers = CoinPriceSerializer(many=True, read_only=True)
+    top_losers = CoinPriceSerializer(many=True, read_only=True)
