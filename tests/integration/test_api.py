@@ -48,3 +48,33 @@ def test_market_stats_returns_404_when_no_snapshots(db):
     client = APIClient()
     response = client.get('/api/analytics/market-stats/')
     assert response.status_code == 404
+
+
+def test_top_movers_returns_sorted_gainers_and_losers(analytics_snapshot):
+    client = APIClient()
+    response = client.get('/api/analytics/top-movers/')
+    assert response.status_code == 200
+
+    gainers = response.data['top_gainers']
+    losers = response.data['top_losers']
+    assert len(gainers) == 5
+    assert len(losers) == 5
+
+    # change_24h: +9, +7, +5, +3, +1, -1, -3, -5, -7, -9 (C1...C10)
+    assert [c['symbol'] for c in gainers] == ['C1', 'C2', 'C3', 'C4', 'C5']
+    assert [c['symbol'] for c in losers] == ['C10', 'C9', 'C8', 'C7', 'C6']
+
+
+def test_top_movers_returns_404_when_latest_snapshot_is_empty(snapshots):
+    client = APIClient()
+    response = client.get('/api/analytics/top-movers/')
+    assert response.status_code == 404
+
+
+def test_top_movers_has_no_n_plus_one(analytics_snapshot, django_assert_num_queries):
+    """N+1 guard: запросов должно быть фиксированное количество независимо
+    от количества монет в снимке."""
+    client = APIClient()
+    with django_assert_num_queries(4):
+        response = client.get('/api/analytics/top-movers/')
+    assert response.status_code == 200
