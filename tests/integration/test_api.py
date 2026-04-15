@@ -1,3 +1,4 @@
+import pytest
 from django.conf import settings
 from rest_framework.test import APIClient
 
@@ -16,6 +17,37 @@ def test_coin_price_history(coins):
     response = client.get('/api/coins/?symbol=C1')
     assert response.status_code == 200
     assert response.data['count'] == 2
+
+
+@pytest.mark.parametrize(
+    "query, expected_symbols",
+    [
+        ("min_price=50", {'C5', 'C6', 'C7', 'C8', 'C9', 'C10'}),
+        ("max_price=30", {'C1', 'C2', 'C3'}),
+        ("min_price=30&max_price=70", {'C3', 'C4', 'C5', 'C6', 'C7'}),
+        ("symbol=C5&min_price=1", {'C5'}),
+    ],
+    ids=[
+        "min_price_only",
+        "max_price_only",
+        "price_range",
+        "symbol_and_min_price",
+    ],
+)
+def test_coins_filter(analytics_snapshot, query, expected_symbols):
+    client = APIClient()
+    response = client.get(f'/api/coins/?{query}')
+    assert response.status_code == 200
+    assert response.data['count'] == len(expected_symbols)
+    symbols = {c['symbol'] for c in response.data['results']}
+    assert symbols == expected_symbols
+
+
+def test_coins_filter_returns_400_on_invalid_min_price(analytics_snapshot):
+    """Нечисловое значение min_price -> 400 от сериализатора-валидатора."""
+    client = APIClient()
+    response = client.get('/api/coins/?min_price=abc')
+    assert response.status_code == 400
 
 
 def test_snapshots_list_uses_prefetch_related(coins, django_assert_num_queries):
