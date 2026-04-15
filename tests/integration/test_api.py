@@ -1,7 +1,14 @@
+"""
+Интеграционные тесты REST API: snapshots, coins, аналитика.
+Тестируется полный HTTP-цикл: запрос -> view -> сервис -> БД -> ответ.
+"""
+
 import pytest
 from django.conf import settings
 from rest_framework.test import APIClient
 
+
+# Тесты snapshots
 
 def test_snapshots_list_is_paginated(snapshots):
     client = APIClient()
@@ -11,6 +18,17 @@ def test_snapshots_list_is_paginated(snapshots):
     assert response.data['next'] is not None
     assert len(response.data['results']) <= settings.REST_FRAMEWORK['PAGE_SIZE']
 
+
+def test_snapshots_list_uses_prefetch_related(coins, django_assert_num_queries):
+    """N+1 guard: список снимков должен делать фиксированное число SQL-запросов
+    независимо от количества снимков и связанных цен."""
+    client = APIClient()
+    with django_assert_num_queries(3):
+        response = client.get('/api/snapshots/')
+    assert response.status_code == 200
+
+
+# Тесты coin price history + filter
 
 def test_coin_price_history(coins):
     client = APIClient()
@@ -50,14 +68,7 @@ def test_coins_filter_returns_400_on_invalid_min_price(analytics_snapshot):
     assert response.status_code == 400
 
 
-def test_snapshots_list_uses_prefetch_related(coins, django_assert_num_queries):
-    """N+1 guard: список снимков должен делать фиксированное число SQL-запросов
-    независимо от количества снимков и связанных цен."""
-    client = APIClient()
-    with django_assert_num_queries(3):
-        response = client.get('/api/snapshots/')
-    assert response.status_code == 200
-
+# Тесты market-stats
 
 def test_market_stats_returns_aggregates_for_latest_snapshot(analytics_snapshot):
     client = APIClient()
@@ -81,6 +92,8 @@ def test_market_stats_returns_404_when_no_snapshots(db):
     response = client.get('/api/analytics/market-stats/')
     assert response.status_code == 404
 
+
+# Тесты top-movers
 
 def test_top_movers_returns_sorted_gainers_and_losers(analytics_snapshot):
     client = APIClient()
@@ -111,6 +124,8 @@ def test_top_movers_has_no_n_plus_one(analytics_snapshot, django_assert_num_quer
         response = client.get('/api/analytics/top-movers/')
     assert response.status_code == 200
 
+
+# Тесты volume-leaders
 
 def test_volume_leaders_returns_coins_desc_sorted(analytics_snapshot):
     client = APIClient()
