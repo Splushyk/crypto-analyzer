@@ -78,3 +78,30 @@ def test_top_movers_has_no_n_plus_one(analytics_snapshot, django_assert_num_quer
     with django_assert_num_queries(4):
         response = client.get('/api/analytics/top-movers/')
     assert response.status_code == 200
+
+
+def test_volume_leaders_returns_coins_desc_sorted(analytics_snapshot):
+    client = APIClient()
+    response = client.get('/api/analytics/volume-leaders/')
+    assert response.status_code == 200
+
+    leaders = response.data['leaders']
+    assert len(leaders) == 10
+
+    # volume: 1000, 2000, ..., 10000 (C1...C10)
+    assert [c['symbol'] for c in leaders] == ['C10', 'C9', 'C8', 'C7', 'C6', 'C5', 'C4', 'C3', 'C2', 'C1']
+
+
+def test_volume_leaders_returns_404_when_latest_snapshot_is_empty(snapshots):
+    client = APIClient()
+    response = client.get('/api/analytics/volume-leaders/')
+    assert response.status_code == 404
+
+
+def test_volume_leaders_has_no_n_plus_one(analytics_snapshot, django_assert_num_queries):
+    """N+1 guard: запросов должно быть фиксированное количество независимо
+    от количества монет в снимке."""
+    client = APIClient()
+    with django_assert_num_queries(3):
+        response = client.get('/api/analytics/volume-leaders/')
+    assert response.status_code == 200
