@@ -14,17 +14,25 @@ from crypto.models import CoinPrice, Snapshot, WatchlistItem
 from src.api_client import ApiClient
 
 
+def _get_latest_snapshot_prices():
+    """
+    Queryset цен последнего снимка рынка. Если снимков ещё нет — возвращает
+    гарантированно пустой queryset (CoinPrice.objects.none()), чтобы вызывающий
+    код не различал «снимков нет» и «снимок есть, но пустой».
+    """
+    latest_snapshot = Snapshot.objects.order_by('-created_at').first()
+    if latest_snapshot is None:
+        return CoinPrice.objects.none()
+    return CoinPrice.objects.filter(snapshot=latest_snapshot)
+
+
 def get_market_stats():
     """
     Агрегированная статистика цен по последнему снимку рынка.
     Возвращает словарь с min/max/avg цены и суммой капитализации,
     либо None, если нет ни одного снимка или снимок пустой.
     """
-    latest_snapshot = Snapshot.objects.order_by('-created_at').first()
-    if latest_snapshot is None:
-        return None
-
-    stats = CoinPrice.objects.filter(snapshot=latest_snapshot).aggregate(
+    stats = _get_latest_snapshot_prices().aggregate(
         min_price=Min('price'),
         max_price=Max('price'),
         avg_price=Avg('price'),
@@ -40,14 +48,10 @@ def get_market_stats():
 def get_top_movers():
     """
     Топ-5 растущих и топ-5 падающих монет по change_24h за последний снимок.
-    Возвращает словарь с двумя querysets, или None, если нет ни одного снимка
+    Возвращает словарь с двумя querysets, либо None, если нет ни одного снимка
     или последний снимок пустой.
     """
-    latest_snapshot = Snapshot.objects.order_by('-created_at').first()
-    if latest_snapshot is None:
-        return None
-
-    prices = CoinPrice.objects.filter(snapshot=latest_snapshot)
+    prices = _get_latest_snapshot_prices()
     if not prices.exists():
         return None
 
@@ -63,11 +67,7 @@ def get_volume_leaders():
     Возвращает словарь с queryset, либо None, если нет ни одного снимка
     или последний снимок пустой.
     """
-    latest_snapshot = Snapshot.objects.order_by('-created_at').first()
-    if latest_snapshot is None:
-        return None
-
-    prices = CoinPrice.objects.filter(snapshot=latest_snapshot)
+    prices = _get_latest_snapshot_prices()
     if not prices.exists():
         return None
 
