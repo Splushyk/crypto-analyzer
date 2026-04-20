@@ -143,6 +143,8 @@ class TaskStatusView(APIView):
             "task_id": task_id,
             "status": result.status,
         }
-        if result.ready():
+        if result.successful():
             response["result"] = result.result
+        elif result.failed():
+            response["error"] = "Задача завершилась с ошибкой"
         return Response(response)
