@@ -1,3 +1,4 @@
+from celery.result import AsyncResult
 from rest_framework import viewsets, generics, status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
@@ -6,9 +7,11 @@ from rest_framework.views import APIView
 
 from crypto.models import Snapshot, CoinPrice
 from crypto.serializers import SnapshotSerializer, CoinPriceSerializer, WatchlistSerializer, AddToWatchlistSerializer, \
-    MarketStatsSerializer, TopMoversSerializer, VolumeLeadersSerializer, CoinPriceFilterSerializer
+    MarketStatsSerializer, TopMoversSerializer, VolumeLeadersSerializer, CoinPriceFilterSerializer, \
+    FetchSnapshotSerializer
 from crypto.services import get_user_watchlist, add_to_watchlist, SymbolNotFoundError, ExistInWatchlistError, \
     remove_from_watchlist, get_market_stats, get_top_movers, get_volume_leaders
+from crypto.tasks import fetch_snapshot_task
 
 
 class SnapshotPagination(PageNumberPagination):
@@ -119,3 +122,27 @@ class VolumeLeadersView(APIView):
             )
         serializer = VolumeLeadersSerializer(leaders)
         return Response(serializer.data)
+
+
+class FetchSnapshotView(APIView):
+    def post(self, request):
+        serializer = FetchSnapshotSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        source = serializer.validated_data['source']
+        result = fetch_snapshot_task.delay(source)
+        return Response(
+            {"task_id": result.id},
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+
+class TaskStatusView(APIView):
+    def get(self, request, task_id):
+        result = AsyncResult(task_id)
+        response = {
+            "task_id": task_id,
+            "status": result.status,
+        }
+        if result.ready():
+            response["result"] = result.result
+        return Response(response)
