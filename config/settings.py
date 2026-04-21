@@ -164,3 +164,8 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(minute=0),
     },
 }
+
+if TESTING:
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
+    CELERY_BROKER_URL = 'memory://'
