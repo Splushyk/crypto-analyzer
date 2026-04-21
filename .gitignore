@@ -14,3 +14,7 @@ crypto_report.db
 db.sqlite3
 /staticfiles/
 /media/
+
+# Celery
+celerybeat-schedule
+celerybeat-schedule.db
