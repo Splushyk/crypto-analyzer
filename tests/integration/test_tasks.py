@@ -26,9 +26,11 @@ def test_fetch_snapshot_task_success(mocker, sample_coin):
     assert CoinPrice.objects.count() == 1
 
     snapshot = Snapshot.objects.first()
+    assert snapshot is not None
     assert snapshot.id == result.result
 
     price = CoinPrice.objects.first()
+    assert price is not None
     assert price.symbol == sample_coin.symbol
     assert price.snapshot == snapshot
 

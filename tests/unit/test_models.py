@@ -44,7 +44,8 @@ def test_cryptocurrency_fields(overrides, attr, expected):
     }
     full_data.update(overrides)
 
-    coin = Cryptocurrency(**full_data)
+    # mypy не выводит типы при **dict
+    coin = Cryptocurrency(**full_data)  # type: ignore[arg-type]
     assert getattr(coin, attr) == expected
 
 

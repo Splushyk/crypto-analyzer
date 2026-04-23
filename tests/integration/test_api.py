@@ -3,6 +3,8 @@
 Тестируется полный HTTP-цикл: запрос -> view -> сервис -> БД -> ответ.
 """
 
+from typing import cast
+
 import pytest
 from django.conf import settings
 from rest_framework.test import APIClient
@@ -16,7 +18,8 @@ def test_snapshots_list_is_paginated(snapshots):
     assert response.status_code == 200
     assert response.data["count"] == 3
     assert response.data["next"] is not None
-    assert len(response.data["results"]) <= settings.REST_FRAMEWORK["PAGE_SIZE"]
+    page_size = cast(int, settings.REST_FRAMEWORK["PAGE_SIZE"])
+    assert len(response.data["results"]) <= page_size
 
 
 def test_snapshots_list_uses_prefetch_related(coins, django_assert_num_queries):

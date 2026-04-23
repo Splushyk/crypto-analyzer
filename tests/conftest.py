@@ -80,7 +80,7 @@ def mock_api_symbol_found(mocker):
 @pytest.fixture
 def mock_api_symbol_not_found(mocker):
     """Мокает ApiClient так, чтобы API вернул пустой список."""
-    fake_response = {"coins": []}
+    fake_response: dict[str, list] = {"coins": []}
     mock_client = mocker.patch("crypto.services.ApiClient")
     mock_client.return_value.get_json.return_value = fake_response
     return mock_client
