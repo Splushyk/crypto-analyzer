@@ -30,7 +30,7 @@ def cmc_raw_data():
                     "volume_24h": 555.12345,
                     "market_cap": 777.12345,
                 }
-            }
+            },
         }
     ]
 

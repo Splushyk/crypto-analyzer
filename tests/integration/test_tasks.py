@@ -8,7 +8,7 @@ import pytest
 from requests.exceptions import ConnectionError
 from rest_framework.test import APIClient
 
-from crypto.models import Snapshot, CoinPrice
+from crypto.models import CoinPrice, Snapshot
 from crypto.tasks import fetch_snapshot_task
 
 
@@ -35,7 +35,9 @@ def test_fetch_snapshot_task_success(mocker, sample_coin):
 
 @pytest.mark.django_db
 def test_fetch_snapshot_task_retries_on_api_error(mocker, sample_coin, settings):
-    """При временной сетевой ошибке задача повторяет попытку и в итоге успешно завершается."""
+    """
+    При временной сетевой ошибке задача повторяет попытку и в итоге успешно завершается.
+    """
     # Celery при retry бросает Retry-исключение. С EAGER_PROPAGATES=True оно
     # пробросится наружу на первой же попытке, не дав механизму retry отработать.
     settings.CELERY_TASK_EAGER_PROPAGATES = False
@@ -67,8 +69,8 @@ def test_fetch_snapshot_endpoint_returns_202_with_task_id(mocker):
     mock_delay.return_value.id = "fake-task-id"
 
     client = APIClient()
-    response = client.post('/api/tasks/fetch-snapshot/', {}, format='json')
+    response = client.post("/api/tasks/fetch-snapshot/", {}, format="json")
 
     assert response.status_code == 202
-    assert response.data['task_id'] == "fake-task-id"
+    assert response.data["task_id"] == "fake-task-id"
     mock_delay.assert_called_once_with("coingecko")

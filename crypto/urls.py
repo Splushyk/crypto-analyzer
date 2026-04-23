@@ -1,19 +1,28 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from crypto.views import SnapshotViewSet, CoinPriceHistoryView, WatchlistView, WatchlistDetailView, MarketStatsView, \
-    TopMoversView, VolumeLeadersView, FetchSnapshotView, TaskStatusView
+from crypto.views import (
+    CoinPriceHistoryView,
+    FetchSnapshotView,
+    MarketStatsView,
+    SnapshotViewSet,
+    TaskStatusView,
+    TopMoversView,
+    VolumeLeadersView,
+    WatchlistDetailView,
+    WatchlistView,
+)
 
 router = DefaultRouter()
-router.register(r'snapshots', SnapshotViewSet)
+router.register(r"snapshots", SnapshotViewSet)
 
 urlpatterns = router.urls + [
-    path('coins/', CoinPriceHistoryView.as_view()),
-    path('watchlist/', WatchlistView.as_view()),
-    path('watchlist/<str:symbol>/', WatchlistDetailView.as_view()),
-    path('analytics/market-stats/', MarketStatsView.as_view()),
-    path('analytics/top-movers/', TopMoversView.as_view()),
-    path('analytics/volume-leaders/', VolumeLeadersView.as_view()),
-    path('tasks/fetch-snapshot/', FetchSnapshotView.as_view()),
-    path('tasks/<str:task_id>/status/', TaskStatusView.as_view()),
+    path("coins/", CoinPriceHistoryView.as_view()),
+    path("watchlist/", WatchlistView.as_view()),
+    path("watchlist/<str:symbol>/", WatchlistDetailView.as_view()),
+    path("analytics/market-stats/", MarketStatsView.as_view()),
+    path("analytics/top-movers/", TopMoversView.as_view()),
+    path("analytics/volume-leaders/", VolumeLeadersView.as_view()),
+    path("tasks/fetch-snapshot/", FetchSnapshotView.as_view()),
+    path("tasks/<str:task_id>/status/", TaskStatusView.as_view()),
 ]

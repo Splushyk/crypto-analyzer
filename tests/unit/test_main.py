@@ -5,10 +5,11 @@
 
 import pytest
 from typer.testing import CliRunner
+
 import src.main
 from src.main import app
-from src.storage import AnalyticsStorage
 from src.providers import CMCProvider, GeckoProvider
+from src.storage import AnalyticsStorage
 
 runner = CliRunner()
 
@@ -28,7 +29,7 @@ def mock_dependencies(mocker, sample_coin):
         "top_up": [sample_coin],
         "top_down": [sample_coin],
         "max_volume": sample_coin,
-        "total_market_cap": 1000.0
+        "total_market_cap": 1000.0,
     }
     mock_analyzer_inst = mocker.Mock()
     mock_analyzer_inst.analyze_data.return_value = mock_results
@@ -41,7 +42,7 @@ def mock_dependencies(mocker, sample_coin):
         "provider": mock_provider,
         "visualizer": mock_visualizer,
         "analyzer": mock_analyzer_inst,
-        "storage": mock_storage
+        "storage": mock_storage,
     }
 
 
@@ -63,7 +64,8 @@ def test_run_invalid_source():
 
 
 def test_run_invalid_output():
-    """Проверка ошибки при неверном формате вывода (покрытие ошибки в build_visualizer)."""
+    """Проверка ошибки при неверном формате вывода
+       (покрытие ошибки в build_visualizer)."""
     # Вызываем через runner, ожидаем ValueError из-за логики в build_visualizer
     with pytest.raises(ValueError) as excinfo:
         runner.invoke(app, ["run", "--output", "pdf"], catch_exceptions=False)
@@ -96,10 +98,13 @@ def test_run_top_argument_passing(mock_dependencies):
     mock_dependencies["analyzer"].analyze_data.assert_called_once_with(10)
 
 
-@pytest.mark.parametrize("source, expected_class", [
-    ("coingecko", GeckoProvider),
-    ("coinmarketcap", CMCProvider),
-])
+@pytest.mark.parametrize(
+    "source, expected_class",
+    [
+        ("coingecko", GeckoProvider),
+        ("coinmarketcap", CMCProvider),
+    ],
+)
 def test_build_provider_returns_correct_type(source, expected_class):
     """Проверка, что фабрика провайдеров возвращает нужные классы."""
     # Обращаемся через src.main, так как функции определены там
@@ -110,6 +115,7 @@ def test_build_provider_returns_correct_type(source, expected_class):
 def test_build_visualizer_console():
     """Проверка, что фабрика возвращает консольный визуализатор."""
     from src.visualizers import ConsoleVisualizer
+
     visualizer = src.main.build_visualizer("console")
     assert isinstance(visualizer, ConsoleVisualizer)
 
@@ -117,7 +123,7 @@ def test_build_visualizer_console():
 def test_main_list_snapshots_success(mock_dependencies, mocker):
     """Проверка успешного вывода списка снимков."""
     # 1. Даем полные данные, чтобы цикл в визуализаторе не сломался
-    fake_data = [{'id': 1, 'created_at': '2026-03-24', 'total_market_cap': 1000}]
+    fake_data = [{"id": 1, "created_at": "2026-03-24", "total_market_cap": 1000}]
     mock_dependencies["storage"].get_all_snapshots.return_value = fake_data
 
     # 2. Мокаем сам КЛАСС визуализатора, так как он создается внутри функции
@@ -133,9 +139,9 @@ def test_main_list_snapshots_success(mock_dependencies, mocker):
 def test_main_compare_success(mock_dependencies, mocker):
     """Проверка успешного сравнения двух снимков."""
     # Данные для сравнения (символы, цены и т.д.)
-    fake_diff = [{
-        'symbol': 'BTC', 'old_price': 100, 'new_price': 110, 'percent_change': 10
-    }]
+    fake_diff = [
+        {"symbol": "BTC", "old_price": 100, "new_price": 110, "percent_change": 10}
+    ]
     mock_dependencies["storage"].get_snapshot_compare.return_value = fake_diff
 
     # Мокаем класс визуализатора локально
@@ -152,6 +158,7 @@ def test_build_storage_factory(mocker):
     # 1. Мокаем настройки, чтобы функция всегда видела SQLITE
     mock_settings = mocker.patch("src.main.settings")
     from src.main import StorageType
+
     mock_settings.storage = StorageType.SQLITE
 
     # 2. Мокаем сам словарь STORAGES, чтобы он вернул наш мок-объект

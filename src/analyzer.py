@@ -17,11 +17,9 @@ class CryptoAnalyzer:
 
     def get_top_coins(self, attr: str, n: int = 3, reverse: bool = True):
         """Внутренний метод для сортировки объектов по любому атрибуту"""
-        return sorted(
-            self.data,
-            key=lambda x: getattr(x, attr) or 0,
-            reverse=reverse
-        )[:n]
+        return sorted(self.data, key=lambda x: getattr(x, attr) or 0, reverse=reverse)[
+            :n
+        ]
 
     def analyze_data(self, top: int = 3):
         """Основной метод, который возвращает словарь со всеми расчетами"""
@@ -35,7 +33,9 @@ class CryptoAnalyzer:
                 "top_up": top_up,
                 "top_down": top_down,
                 "max_volume": max_volume,
-                "total_market_cap": total_market_cap
+                "total_market_cap": total_market_cap,
             }
         except IndexError:
-            raise ValueError("Не удалось проанализировать данные: список монет пуст или некорректен")
+            raise ValueError(
+                "Не удалось проанализировать данные: список монет пуст или некорректен"
+            )

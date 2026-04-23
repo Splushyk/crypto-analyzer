@@ -16,10 +16,13 @@ import requests
 from src.api_client import ApiClient
 
 
-@pytest.mark.parametrize("base_url, headers", [
-    ("https://fake-api.com", {"Some_item": "some_value"}),
-    ("https://fake-api.com", None),
-])
+@pytest.mark.parametrize(
+    "base_url, headers",
+    [
+        ("https://fake-api.com", {"Some_item": "some_value"}),
+        ("https://fake-api.com", None),
+    ],
+)
 def test_api_client_headers(base_url, headers):
     client = ApiClient(base_url, headers)
     assert client.headers["Accept"] == "application/json"
@@ -31,10 +34,13 @@ def test_get_json(mock_session, mock_response, api_client):
     assert api_client.get_json() == {"some_item": "some_value"}
 
 
-@pytest.mark.parametrize("exc", [
-    requests.exceptions.Timeout,
-    requests.exceptions.ConnectionError,
-])
+@pytest.mark.parametrize(
+    "exc",
+    [
+        requests.exceptions.Timeout,
+        requests.exceptions.ConnectionError,
+    ],
+)
 def test_get_json_exceptions(mock_session, api_client, mocker, exc, caplog):
     mocker.patch("src.api_client.time.sleep")
 

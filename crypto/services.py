@@ -1,6 +1,7 @@
 """
 Сервисный слой для работы с watchlist.
-Содержит бизнес-логику: валидация символа через API биржи, управление списком отслеживаемых монет пользователя.
+Содержит бизнес-логику: валидация символа через API биржи,
+управление списком отслеживаемых монет пользователя.
 Не зависит от DRF — работает только с Django ORM и стандартной библиотекой.
 """
 
@@ -8,9 +9,8 @@ import os
 
 from django.conf import settings
 from django.contrib.auth.models import User
-
 from django.db import IntegrityError
-from django.db.models import Min, Max, Avg, Sum, QuerySet
+from django.db.models import Avg, Max, Min, QuerySet, Sum
 
 from crypto.models import CoinPrice, Snapshot, WatchlistItem
 from src.api_client import ApiClient
@@ -22,7 +22,7 @@ def _get_latest_snapshot_prices() -> QuerySet[CoinPrice]:
     гарантированно пустой queryset (CoinPrice.objects.none()), чтобы вызывающий
     код не различал «снимков нет» и «снимок есть, но пустой».
     """
-    latest_snapshot = Snapshot.objects.order_by('-created_at').first()
+    latest_snapshot = Snapshot.objects.order_by("-created_at").first()
     if latest_snapshot is None:
         return CoinPrice.objects.none()
     return CoinPrice.objects.filter(snapshot=latest_snapshot)
@@ -35,13 +35,13 @@ def get_market_stats() -> dict[str, float] | None:
     либо None, если нет ни одного снимка или снимок пустой.
     """
     stats = _get_latest_snapshot_prices().aggregate(
-        min_price=Min('price'),
-        max_price=Max('price'),
-        avg_price=Avg('price'),
-        total_market_cap=Sum('market_cap'),
+        min_price=Min("price"),
+        max_price=Max("price"),
+        avg_price=Avg("price"),
+        total_market_cap=Sum("market_cap"),
     )
 
-    if stats['min_price'] is None:
+    if stats["min_price"] is None:
         return None
 
     return stats
@@ -58,8 +58,8 @@ def get_top_movers() -> dict[str, QuerySet[CoinPrice, CoinPrice]] | None:
         return None
 
     return {
-        "top_gainers": prices.order_by('-change_24h')[:5],
-        "top_losers": prices.order_by('change_24h')[:5],
+        "top_gainers": prices.order_by("-change_24h")[:5],
+        "top_losers": prices.order_by("change_24h")[:5],
     }
 
 
@@ -74,17 +74,19 @@ def get_volume_leaders() -> dict[str, QuerySet[CoinPrice, CoinPrice]] | None:
         return None
 
     return {
-        "leaders": prices.order_by('-volume')[:10],
+        "leaders": prices.order_by("-volume")[:10],
     }
 
 
 class SymbolNotFoundError(Exception):
     """Символ не найден на бирже."""
+
     pass
 
 
 class ExistInWatchlistError(Exception):
     """Монета уже есть в watchlist пользователя."""
+
     pass
 
 
@@ -94,7 +96,10 @@ def get_user_watchlist(user: User) -> QuerySet[WatchlistItem, WatchlistItem]:
 
 
 def remove_from_watchlist(user: User, symbol: str) -> bool:
-    """Удаляет монету из watchlist. Возвращает True если удалена, False если не найдена."""
+    """
+    Удаляет монету из watchlist.
+    Возвращает True если удалена, False если не найдена.
+    """
     deleted_item = WatchlistItem.objects.filter(user=user, symbol=symbol).delete()
     return True if deleted_item[0] == 1 else False
 
@@ -136,7 +141,10 @@ VALIDATORS = {
 
 
 def validate_symbol(symbol: str) -> tuple[str, str]:
-    """Проверяет существование символа через API выбранной биржи. Возвращает (symbol, name)."""
+    """
+    Проверяет существование символа через API выбранной биржи.
+    Возвращает (symbol, name).
+    """
     provider = settings.CRYPTO_PROVIDER
     validator = VALIDATORS.get(provider)
 

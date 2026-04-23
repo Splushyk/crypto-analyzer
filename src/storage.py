@@ -52,7 +52,9 @@ class AnalyticsStorage(BaseStorage):
         pass
 
     @abstractmethod
-    def get_snapshot_compare(self, snapshot_id_1: int, snapshot_id_2: int) -> list[dict]:
+    def get_snapshot_compare(
+        self, snapshot_id_1: int, snapshot_id_2: int
+    ) -> list[dict]:
         """Возвращает разницу цен между двумя снимками."""
         pass
 
@@ -90,8 +92,8 @@ class JsonStorage(BaseStorage):
             "highest_volume": {
                 "name": results["max_volume"].name,
                 "symbol": results["max_volume"].symbol,
-                "volume": results["max_volume"].volume
-            }
+                "volume": results["max_volume"].volume,
+            },
         }
 
         with open(self.filename, "w", encoding="utf-8") as file:
@@ -142,7 +144,8 @@ class SqliteStorage(AnalyticsStorage):
                                change_24h  REAL    NOT NULL,
                                volume      REAL    NOT NULL,
                                market_cap  REAL    NOT NULL,
-                               FOREIGN KEY (snapshot_id) REFERENCES snapshots (id) ON DELETE CASCADE
+                               FOREIGN KEY (snapshot_id) REFERENCES snapshots (id) 
+                               ON DELETE CASCADE
                            )
                            """)
 
@@ -155,16 +158,26 @@ class SqliteStorage(AnalyticsStorage):
 
             cursor.execute(
                 "INSERT INTO snapshots (created_at, total_market_cap) VALUES (?, ?)",
-                (created_at, results["total_market_cap"])
+                (created_at, results["total_market_cap"]),
             )
             snapshot_id = cursor.lastrowid
 
             cursor.executemany(
-                "INSERT INTO coin_prices (snapshot_id, name, symbol, price, change_24h, volume, market_cap) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO coin_prices "
+                "(snapshot_id, name, symbol, price, change_24h, volume, market_cap) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
                 [
-                    (snapshot_id, coin.name, coin.symbol, coin.price, coin.change_24h, coin.volume, coin.market_cap)
+                    (
+                        snapshot_id,
+                        coin.name,
+                        coin.symbol,
+                        coin.price,
+                        coin.change_24h,
+                        coin.volume,
+                        coin.market_cap,
+                    )
                     for coin in coins
-                ]
+                ],
             )
 
             logger.info("Данные успешно сохранены в SQLite")
@@ -177,21 +190,23 @@ class SqliteStorage(AnalyticsStorage):
         cursor.execute(query)
         return [dict(row) for row in cursor.fetchall()]
 
-    def get_snapshot_compare(self, snapshot_id_1: int, snapshot_id_2: int) -> list[dict]:
+    def get_snapshot_compare(
+        self, snapshot_id_1: int, snapshot_id_2: int
+    ) -> list[dict]:
         """Сравнивает цены монет между двумя снимками."""
         query = """
-                SELECT t1.symbol,
-                       t1.price                                            AS old_price,
-                       t2.price                                            AS new_price,
-                       (t2.price - t1.price)                               AS price_diff,
-                       ((t2.price - t1.price) / NULLIF(t1.price, 0) * 100) AS percent_change
-                FROM coin_prices AS t1
-                         JOIN coin_prices AS t2
-                              ON t1.symbol = t2.symbol
-                WHERE t1.snapshot_id = ?
-                  AND t2.snapshot_id = ?
-                ORDER BY percent_change DESC
-                """
+            SELECT t1.symbol,
+                   t1.price AS old_price,
+                   t2.price AS new_price,
+                   (t2.price - t1.price) AS price_diff,
+                   ((t2.price - t1.price) / NULLIF(t1.price, 0) * 100) AS percent_change
+            FROM coin_prices AS t1
+                     JOIN coin_prices AS t2
+                          ON t1.symbol = t2.symbol
+            WHERE t1.snapshot_id = ?
+              AND t2.snapshot_id = ?
+            ORDER BY percent_change DESC
+            """
         # Используем self.conn напрямую
         cursor = self.conn.cursor()
         cursor.execute(query, (snapshot_id_1, snapshot_id_2))
@@ -243,7 +258,4 @@ class SqliteStorage(AnalyticsStorage):
         cursor.execute(query_down)
         losers = [dict(row) for row in cursor.fetchall()]
 
-        return {
-            "gainers": gainers,
-            "losers": losers
-        }
+        return {"gainers": gainers, "losers": losers}

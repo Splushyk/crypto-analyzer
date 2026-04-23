@@ -1,7 +1,15 @@
 class Cryptocurrency:
     """Представляет криптовалюту с основными рыночными данными."""
 
-    def __init__(self, name: str, symbol: str, price: float, change_24h: float, volume: float, market_cap: float):
+    def __init__(
+        self,
+        name: str,
+        symbol: str,
+        price: float,
+        change_24h: float,
+        volume: float,
+        market_cap: float,
+    ):
         self.name = name
         self.symbol = symbol.upper()
         self.price = price or 0.0
@@ -10,7 +18,9 @@ class Cryptocurrency:
         self.market_cap = market_cap or 0.0
 
     def __str__(self):
-        return f"{self.name} ({self.symbol}): ${self.price:,.2f} ({self.change_24h:+.2f}%)"
+        return (
+            f"{self.name} ({self.symbol}): ${self.price:,.2f} ({self.change_24h:+.2f}%)"
+        )
 
     def __lt__(self, other):
         if not isinstance(other, Cryptocurrency):
@@ -23,10 +33,10 @@ class Cryptocurrency:
 
         # Сравниваем все значимые поля
         return (
-                self.name == other.name and
-                self.symbol == other.symbol and
-                self.price == other.price and
-                self.change_24h == other.change_24h and
-                self.volume == other.volume and
-                self.market_cap == other.market_cap
+            self.name == other.name
+            and self.symbol == other.symbol
+            and self.price == other.price
+            and self.change_24h == other.change_24h
+            and self.volume == other.volume
+            and self.market_cap == other.market_cap
         )

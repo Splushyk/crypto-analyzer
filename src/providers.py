@@ -1,6 +1,7 @@
 """
 Модуль является связующим звеном между API и парсером.
-Провайдер сам не делает запросы и сам не парсит, а организует поток. Каждый провайдер знает свою специфику.
+Провайдер сам не делает запросы и сам не парсит, а организует поток.
+Каждый провайдер знает свою специфику.
 """
 
 import logging
@@ -30,7 +31,7 @@ class GeckoProvider(CryptoProvider):
             "vs_currency": "usd",
             "order": "market_cap_desc",
             "per_page": 50,
-            "page": 1
+            "page": 1,
         }
         self.client = client
         self.parser = parser
@@ -43,18 +44,17 @@ class GeckoProvider(CryptoProvider):
 
 
 class CMCProvider(CryptoProvider):
-    """Провайдер данных CoinMarketCap. Требует API-ключ в переменной окружения CMC_API_KEY."""
+    """
+    Провайдер данных CoinMarketCap.
+    Требует API-ключ в переменной окружения CMC_API_KEY.
+    """
 
     def __init__(self, client: ApiClient, parser: BaseParser):
         self.client = client
         self.parser = parser
 
     def get_coins(self) -> list[Cryptocurrency]:
-        params = {
-            "start": "1",
-            "limit": "50",
-            "convert": "USD"
-        }
+        params = {"start": "1", "limit": "50", "convert": "USD"}
         raw_response = self.client.get_json(params=params)
         coins_list = raw_response.get("data", [])
         logger.info(f"Получено {len(coins_list)} монет от CoinMarketCap")
