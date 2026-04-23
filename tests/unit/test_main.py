@@ -64,8 +64,10 @@ def test_run_invalid_source():
 
 
 def test_run_invalid_output():
-    """Проверка ошибки при неверном формате вывода
-       (покрытие ошибки в build_visualizer)."""
+    """
+    Проверка ошибки при неверном формате вывода
+    (покрытие ошибки в build_visualizer).
+    """
     # Вызываем через runner, ожидаем ValueError из-за логики в build_visualizer
     with pytest.raises(ValueError) as excinfo:
         runner.invoke(app, ["run", "--output", "pdf"], catch_exceptions=False)
