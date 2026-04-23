@@ -1,7 +1,9 @@
 from celery.result import AsyncResult
+from django.db.models import QuerySet
 from rest_framework import viewsets, generics, status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -28,7 +30,7 @@ class SnapshotViewSet(viewsets.ModelViewSet):
 class CoinPriceHistoryView(generics.ListAPIView):
     serializer_class = CoinPriceSerializer
 
-    def get_queryset(self):
+    def get_queryset(self) -> QuerySet[CoinPrice]:
         filter_serializer = CoinPriceFilterSerializer(data=self.request.query_params)
         filter_serializer.is_valid(raise_exception=True)
         filters = filter_serializer.validated_data
@@ -46,12 +48,14 @@ class CoinPriceHistoryView(generics.ListAPIView):
 class WatchlistView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
+    def get(self, request: Request) -> Response:
+        assert request.user.is_authenticated
         user_watchlist = get_user_watchlist(request.user)
         serializer = WatchlistSerializer(user_watchlist, many=True)
         return Response(serializer.data)
 
-    def post(self, request):
+    def post(self, request: Request) -> Response:
+        assert request.user.is_authenticated
         serializer = AddToWatchlistSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         symbol = serializer.validated_data['symbol']
@@ -78,7 +82,8 @@ class WatchlistView(APIView):
 class WatchlistDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def delete(self, request, symbol):
+    def delete(self, request: Request, symbol: str) -> Response:
+        assert request.user.is_authenticated
         if remove_from_watchlist(request.user, symbol):
             return Response(status=status.HTTP_204_NO_CONTENT)
         else:
@@ -89,7 +94,7 @@ class WatchlistDetailView(APIView):
 
 
 class MarketStatsView(APIView):
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         stats = get_market_stats()
         if stats is None:
             return Response(
@@ -101,7 +106,7 @@ class MarketStatsView(APIView):
 
 
 class TopMoversView(APIView):
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         tops = get_top_movers()
         if tops is None:
             return Response(
@@ -113,7 +118,7 @@ class TopMoversView(APIView):
 
 
 class VolumeLeadersView(APIView):
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         leaders = get_volume_leaders()
         if leaders is None:
             return Response(
@@ -125,7 +130,7 @@ class VolumeLeadersView(APIView):
 
 
 class FetchSnapshotView(APIView):
-    def post(self, request):
+    def post(self, request: Request) -> Response:
         serializer = FetchSnapshotSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         source = serializer.validated_data['source']
@@ -137,7 +142,7 @@ class FetchSnapshotView(APIView):
 
 
 class TaskStatusView(APIView):
-    def get(self, request, task_id):
+    def get(self, request: Request, task_id: str) -> Response:
         result = AsyncResult(task_id)
         response = {
             "task_id": task_id,

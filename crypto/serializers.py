@@ -51,7 +51,7 @@ class CoinPriceFilterSerializer(serializers.Serializer):
 
 
 class FetchSnapshotSerializer(serializers.Serializer):
-    source = serializers.ChoiceField(
+    source = serializers.ChoiceField(  # type: ignore[assignment]
         choices=["coingecko", "cmc"],
         default="coingecko",
     )
