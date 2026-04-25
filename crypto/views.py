@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from crypto.models import CoinPrice, Snapshot
+from crypto.permissions import IsAdminOrReadOnly
 from crypto.serializers import (
     AddToWatchlistSerializer,
     CoinPriceFilterSerializer,
@@ -36,11 +37,10 @@ class SnapshotPagination(PageNumberPagination):
     page_size = 2
 
 
-class SnapshotViewSet(viewsets.ModelViewSet):
+class SnapshotViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Snapshot.objects.order_by("-created_at").prefetch_related("prices")
     serializer_class = SnapshotSerializer
     pagination_class = SnapshotPagination
-    http_method_names = ["get", "head", "options"]
 
 
 class CoinPriceHistoryView(generics.ListAPIView):
@@ -143,6 +143,8 @@ class VolumeLeadersView(APIView):
 
 
 class FetchSnapshotView(APIView):
+    permission_classes = [IsAdminOrReadOnly]
+
     def post(self, request: Request) -> Response:
         serializer = FetchSnapshotSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

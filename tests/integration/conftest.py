@@ -100,3 +100,19 @@ def auth_client_b(user_b):
     token = response.data["access"]
     client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
     return client
+
+
+@pytest.fixture
+def admin_client(admin_user):
+    """APIClient, аутентифицированный как admin_user (is_staff=True) через JWT."""
+    client = APIClient()
+    response = client.post(
+        "/api/token/",
+        {
+            "username": "admin_test",
+            "password": "adminpass123",
+        },
+    )
+    token = response.data["access"]
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+    return client

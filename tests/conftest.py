@@ -61,6 +61,14 @@ def user_b(db):
 
 
 @pytest.fixture
+def admin_user(db):
+    """Тестовый пользователь со staff-правами."""
+    return User.objects.create_user(
+        username="admin_test", password="adminpass123", is_staff=True
+    )
+
+
+@pytest.fixture
 def mock_api_symbol_found(mocker):
     """
     Мокает ApiClient так, чтобы API нашёл монету BTC.
