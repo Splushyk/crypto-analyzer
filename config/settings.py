@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "crypto",
+    "drf_spectacular",
 ]
 
 MIDDLEWARE = [
@@ -152,6 +153,7 @@ REST_FRAMEWORK = {
         "user": "100/minute",
         "superuser": "1000/minute",
     },
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
 SIMPLE_JWT = {
@@ -174,6 +176,14 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": crontab(minute=0),
     },
 }
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Crypto Analyzer API",
+    "DESCRIPTION": "REST API для анализа рынка криптовалют",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+}
+
 
 if TESTING:
     CELERY_TASK_ALWAYS_EAGER = True
