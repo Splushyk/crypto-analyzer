@@ -142,6 +142,16 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "crypto.throttling.CustomUserRateThrottle",
+        "crypto.throttling.SuperUserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "5/minute",
+        "user": "100/minute",
+        "superuser": "1000/minute",
+    },
 }
 
 SIMPLE_JWT = {
@@ -169,3 +179,4 @@ if TESTING:
     CELERY_TASK_ALWAYS_EAGER = True
     CELERY_TASK_EAGER_PROPAGATES = True
     CELERY_BROKER_URL = "memory://"
+    REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []
