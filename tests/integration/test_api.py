@@ -38,7 +38,7 @@ def test_coin_price_history(coins):
     client = APIClient()
     response = client.get("/api/coins/?symbol=C1")
     assert response.status_code == 200
-    assert response.data["count"] == 2
+    assert len(response.data["results"]) == 2
 
 
 @pytest.mark.parametrize(
@@ -60,7 +60,7 @@ def test_coins_filter(analytics_snapshot, query, expected_symbols):
     client = APIClient()
     response = client.get(f"/api/coins/?{query}")
     assert response.status_code == 200
-    assert response.data["count"] == len(expected_symbols)
+    assert len(response.data["results"]) == len(expected_symbols)
     symbols = {c["symbol"] for c in response.data["results"]}
     assert symbols == expected_symbols
 
@@ -77,7 +77,7 @@ def test_coin_price_filter_symbol_is_case_insensitive(coins):
     client = APIClient()
     response = client.get("/api/coins/?symbol=c1")
     assert response.status_code == 200
-    assert response.data["count"] == 2
+    assert len(response.data["results"]) == 2
 
 
 # Тесты market-stats

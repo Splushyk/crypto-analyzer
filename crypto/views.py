@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 
 from crypto.filters import CoinPriceFilter
 from crypto.models import CoinPrice, Snapshot
+from crypto.pagination import CoinPriceCursorPagination
 from crypto.permissions import IsAdminOrReadOnly
 from crypto.schemas import (
     coin_history_schema,
@@ -61,7 +62,8 @@ class CoinPriceHistoryView(generics.ListAPIView):
     serializer_class = CoinPriceSerializer
     filterset_class = CoinPriceFilter
     filter_backends = [DjangoFilterBackend]
-    queryset = CoinPrice.objects.all().order_by("-snapshot__created_at", "-id")
+    queryset = CoinPrice.objects.all()
+    pagination_class = CoinPriceCursorPagination
 
 
 class WatchlistView(APIView):
