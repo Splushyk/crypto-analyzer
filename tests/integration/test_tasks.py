@@ -105,3 +105,34 @@ def test_fetch_snapshot_endpoint_forbidden_for_regular_user(mocker, auth_client_
 
     assert response.status_code == 403
     mock_delay.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "celery_status, successful, failed, extra",
+    [
+        ("PENDING", False, False, {}),
+        ("SUCCESS", True, False, {"result": 42}),
+        ("FAILURE", False, True, {"failure_reason": "Task failed."}),
+    ],
+    ids=["pending", "success", "failed"],
+)
+def test_task_status(mocker, celery_status, successful, failed, extra):
+    """TaskStatusView отдаёт корректную форму ответа для PENDING/SUCCESS/FAILURE.
+
+    Для FAILURE проверяется, что используется новое имя поля "failure_reason",
+    а не legacy "error" (равенство dict'ов это гарантирует).
+    """
+    mock_result = mocker.Mock(status=celery_status, result=extra.get("result"))
+    mock_result.successful.return_value = successful
+    mock_result.failed.return_value = failed
+    mocker.patch("crypto.views.AsyncResult", return_value=mock_result)
+
+    client = APIClient()
+    response = client.get("/api/v1/tasks/some-task-id/status/")
+
+    assert response.status_code == 200
+    assert response.data == {
+        "task_id": "some-task-id",
+        "status": celery_status,
+        **extra,
+    }

@@ -7,6 +7,12 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from crypto.exceptions import (
+    NoDataForAnalysisError,
+    SymbolNotFoundOnExchangeError,
+    WatchlistDuplicateError,
+    WatchlistItemNotFoundError,
+)
 from crypto.filters import CoinPriceFilter
 from crypto.models import CoinPrice, Snapshot
 from crypto.pagination import CoinPriceCursorPagination, SnapshotPagination
@@ -83,16 +89,10 @@ class WatchlistView(APIView):
 
         try:
             item = add_to_watchlist(request.user, symbol)
-        except SymbolNotFoundError:
-            return Response(
-                {"error": "Символ не найден на бирже"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        except ExistInWatchlistError:
-            return Response(
-                {"error": "Монета уже в вашем списке отслеживаемых монет"},
-                status=status.HTTP_409_CONFLICT,
-            )
+        except SymbolNotFoundError as exc:
+            raise SymbolNotFoundOnExchangeError() from exc
+        except ExistInWatchlistError as exc:
+            raise WatchlistDuplicateError() from exc
 
         return Response(WatchlistSerializer(item).data, status=status.HTTP_201_CREATED)
 
@@ -103,13 +103,9 @@ class WatchlistDetailView(APIView):
     @watchlist_delete_schema
     def delete(self, request: Request, symbol: str, **kwargs) -> Response:
         assert request.user.is_authenticated
-        if remove_from_watchlist(request.user, symbol):
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        else:
-            return Response(
-                {"error": "Такой монеты не было в вашем списке отслеживаемых монет"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+        if not remove_from_watchlist(request.user, symbol):
+            raise WatchlistItemNotFoundError()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @market_stats_schema
@@ -117,10 +113,7 @@ class MarketStatsView(APIView):
     def get(self, request: Request, **kwargs) -> Response:
         stats = get_market_stats()
         if stats is None:
-            return Response(
-                {"error": "Нет данных для анализа"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            raise NoDataForAnalysisError()
         serializer = MarketStatsSerializer(stats)
         return Response(serializer.data)
 
@@ -130,10 +123,7 @@ class TopMoversView(APIView):
     def get(self, request: Request, **kwargs) -> Response:
         tops = get_top_movers()
         if tops is None:
-            return Response(
-                {"error": "Нет данных для анализа"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            raise NoDataForAnalysisError()
         serializer = TopMoversSerializer(tops)
         return Response(serializer.data)
 
@@ -143,10 +133,7 @@ class VolumeLeadersView(APIView):
     def get(self, request: Request, **kwargs) -> Response:
         leaders = get_volume_leaders()
         if leaders is None:
-            return Response(
-                {"error": "Нет данных для анализа"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            raise NoDataForAnalysisError()
         serializer = VolumeLeadersSerializer(leaders)
         return Response(serializer.data)
 
@@ -177,5 +164,5 @@ class TaskStatusView(APIView):
         if result.successful():
             response["result"] = result.result
         elif result.failed():
-            response["error"] = "Задача завершилась с ошибкой"
+            response["failure_reason"] = "Task failed."
         return Response(response)

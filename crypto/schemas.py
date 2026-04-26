@@ -24,7 +24,10 @@ from crypto.serializers import (
 
 error_response = inline_serializer(
     name="ErrorResponse",
-    fields={"error": serializers.CharField()},
+    fields={
+        "error": serializers.CharField(),
+        "code": serializers.CharField(),
+    },
 )
 
 
@@ -74,7 +77,10 @@ watchlist_post_schema = extend_schema(
             examples=[
                 OpenApiExample(
                     "Неизвестный тикер",
-                    value={"error": "Символ не найден на бирже"},
+                    value={
+                        "error": "Symbol not found on exchange.",
+                        "code": "symbol_not_found",
+                    },
                     status_codes=["400"],
                 ),
             ],
@@ -87,7 +93,8 @@ watchlist_post_schema = extend_schema(
                 OpenApiExample(
                     "Дубликат",
                     value={
-                        "error": "Монета уже в вашем списке отслеживаемых монет",
+                        "error": "Coin already in your watchlist.",
+                        "code": "watchlist_duplicate",
                     },
                     status_codes=["409"],
                 ),
@@ -126,8 +133,8 @@ watchlist_delete_schema = extend_schema(
                 OpenApiExample(
                     "Не найдено",
                     value={
-                        "error": "Такой монеты не было в вашем списке "
-                        "отслеживаемых монет",
+                        "error": "Coin is not in your watchlist.",
+                        "code": "watchlist_item_not_found",
                     },
                     status_codes=["404"],
                 ),
@@ -169,7 +176,20 @@ market_stats_schema = extend_schema(
     "по последнему снимку.",
     responses={
         200: MarketStatsSerializer,
-        404: OpenApiResponse(description="Нет данных для анализа"),
+        404: OpenApiResponse(
+            response=error_response,
+            description="Нет данных для анализа",
+            examples=[
+                OpenApiExample(
+                    "Нет данных",
+                    value={
+                        "error": "No data available for analysis.",
+                        "code": "no_data_for_analysis",
+                    },
+                    status_codes=["404"],
+                ),
+            ],
+        ),
     },
     tags=["analytics"],
 )
@@ -181,7 +201,20 @@ top_movers_schema = extend_schema(
     "за 24 часа из последнего снимка.",
     responses={
         200: TopMoversSerializer,
-        404: OpenApiResponse(description="Нет данных для анализа"),
+        404: OpenApiResponse(
+            response=error_response,
+            description="Нет данных для анализа",
+            examples=[
+                OpenApiExample(
+                    "Нет данных",
+                    value={
+                        "error": "No data available for analysis.",
+                        "code": "no_data_for_analysis",
+                    },
+                    status_codes=["404"],
+                ),
+            ],
+        ),
     },
     tags=["analytics"],
 )
@@ -192,7 +225,20 @@ volume_leaders_schema = extend_schema(
     description="Возвращает монеты с наибольшим объёмом торгов из последнего снимка.",
     responses={
         200: VolumeLeadersSerializer,
-        404: OpenApiResponse(description="Нет данных для анализа"),
+        404: OpenApiResponse(
+            response=error_response,
+            description="Нет данных для анализа",
+            examples=[
+                OpenApiExample(
+                    "Нет данных",
+                    value={
+                        "error": "No data available for analysis.",
+                        "code": "no_data_for_analysis",
+                    },
+                    status_codes=["404"],
+                ),
+            ],
+        ),
     },
     tags=["analytics"],
 )
@@ -201,8 +247,9 @@ volume_leaders_schema = extend_schema(
 task_status_schema = extend_schema(
     summary="Статус Celery-задачи",
     description=(
-        "Возвращает текущий статус задачи по её id. Поля `result` и `error` "
-        "присутствуют только для завершённых и упавших задач соответственно."
+        "Возвращает текущий статус задачи по её id. Поля `result` и "
+        "`failure_reason` присутствуют только для завершённых и упавших задач "
+        "соответственно."
     ),
     parameters=[
         OpenApiParameter(
@@ -220,7 +267,7 @@ task_status_schema = extend_schema(
                     "task_id": serializers.CharField(),
                     "status": serializers.CharField(),
                     "result": serializers.JSONField(required=False),
-                    "error": serializers.CharField(required=False),
+                    "failure_reason": serializers.CharField(required=False),
                 },
             ),
             description="Статус задачи",
@@ -240,7 +287,7 @@ task_status_schema = extend_schema(
                     value={
                         "task_id": "f3a1...",
                         "status": "FAILURE",
-                        "error": "Задача завершилась с ошибкой",
+                        "failure_reason": "Task failed.",
                     },
                     status_codes=["200"],
                 ),

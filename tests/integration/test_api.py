@@ -118,6 +118,10 @@ def test_market_stats_returns_404_when_no_snapshots(db):
     client = APIClient()
     response = client.get("/api/v1/analytics/market-stats/")
     assert response.status_code == 404
+    assert response.data == {
+        "error": "No data available for analysis.",
+        "code": "no_data_for_analysis",
+    }
 
 
 # Тесты top-movers
