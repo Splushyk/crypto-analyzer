@@ -1,3 +1,5 @@
+"""FilterSet'ы django-filter для list-эндпоинтов."""
+
 import django_filters
 
 from crypto.models import CoinPrice

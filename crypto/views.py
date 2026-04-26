@@ -1,7 +1,7 @@
 from celery.result import AsyncResult
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, status, viewsets
-from rest_framework.pagination import PageNumberPagination
+from rest_framework.filters import OrderingFilter
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 
 from crypto.filters import CoinPriceFilter
 from crypto.models import CoinPrice, Snapshot
-from crypto.pagination import CoinPriceCursorPagination
+from crypto.pagination import CoinPriceCursorPagination, SnapshotPagination
 from crypto.permissions import IsAdminOrReadOnly
 from crypto.schemas import (
     coin_history_schema,
@@ -46,15 +46,13 @@ from crypto.services import (
 from crypto.tasks import fetch_snapshot_task
 
 
-class SnapshotPagination(PageNumberPagination):
-    page_size = 2
-
-
 @snapshot_viewset_schema
 class SnapshotViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Snapshot.objects.order_by("-created_at").prefetch_related("prices")
     serializer_class = SnapshotSerializer
     pagination_class = SnapshotPagination
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    ordering_fields = ["created_at", "total_market_cap"]
 
 
 @coin_history_schema

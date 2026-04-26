@@ -1,3 +1,5 @@
+"""DRF throttle-классы по ролям пользователя."""
+
 from rest_framework.throttling import UserRateThrottle
 
 

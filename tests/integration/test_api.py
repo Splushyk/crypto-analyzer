@@ -3,6 +3,7 @@
 Тестируется полный HTTP-цикл: запрос -> view -> сервис -> БД -> ответ.
 """
 
+from decimal import Decimal
 from typing import cast
 
 import pytest
@@ -20,6 +21,19 @@ def test_snapshots_list_is_paginated(snapshots):
     assert response.data["next"] is not None
     page_size = cast(int, settings.REST_FRAMEWORK["PAGE_SIZE"])
     assert len(response.data["results"]) <= page_size
+
+
+@pytest.mark.parametrize(
+    "param, reverse",
+    [("total_market_cap", False), ("-total_market_cap", True)],
+)
+def test_snapshots_ordering_by_total_market_cap(snapshots, param, reverse):
+    """OrderingFilter сортирует снимки по total_market_cap (asc и desc)."""
+    client = APIClient()
+    response = client.get(f"/api/v1/snapshots/?ordering={param}")
+    assert response.status_code == 200
+    caps = [Decimal(s["total_market_cap"]) for s in response.data["results"]]
+    assert caps == sorted(caps, reverse=reverse)
 
 
 def test_snapshots_list_uses_prefetch_related(coins, django_assert_num_queries):

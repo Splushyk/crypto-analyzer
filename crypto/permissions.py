@@ -1,3 +1,5 @@
+"""Permission-классы приложения."""
+
 from rest_framework import permissions
 
 
