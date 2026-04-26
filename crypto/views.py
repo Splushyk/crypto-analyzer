@@ -70,14 +70,14 @@ class WatchlistView(APIView):
     permission_classes = [IsAuthenticated]
 
     @watchlist_get_schema
-    def get(self, request: Request) -> Response:
+    def get(self, request: Request, **kwargs) -> Response:
         assert request.user.is_authenticated
         user_watchlist = get_user_watchlist(request.user)
         serializer = WatchlistSerializer(user_watchlist, many=True)
         return Response(serializer.data)
 
     @watchlist_post_schema
-    def post(self, request: Request) -> Response:
+    def post(self, request: Request, **kwargs) -> Response:
         assert request.user.is_authenticated
         serializer = AddToWatchlistSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -103,7 +103,7 @@ class WatchlistDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     @watchlist_delete_schema
-    def delete(self, request: Request, symbol: str) -> Response:
+    def delete(self, request: Request, symbol: str, **kwargs) -> Response:
         assert request.user.is_authenticated
         if remove_from_watchlist(request.user, symbol):
             return Response(status=status.HTTP_204_NO_CONTENT)
@@ -116,7 +116,7 @@ class WatchlistDetailView(APIView):
 
 @market_stats_schema
 class MarketStatsView(APIView):
-    def get(self, request: Request) -> Response:
+    def get(self, request: Request, **kwargs) -> Response:
         stats = get_market_stats()
         if stats is None:
             return Response(
@@ -129,7 +129,7 @@ class MarketStatsView(APIView):
 
 @top_movers_schema
 class TopMoversView(APIView):
-    def get(self, request: Request) -> Response:
+    def get(self, request: Request, **kwargs) -> Response:
         tops = get_top_movers()
         if tops is None:
             return Response(
@@ -142,7 +142,7 @@ class TopMoversView(APIView):
 
 @volume_leaders_schema
 class VolumeLeadersView(APIView):
-    def get(self, request: Request) -> Response:
+    def get(self, request: Request, **kwargs) -> Response:
         leaders = get_volume_leaders()
         if leaders is None:
             return Response(
@@ -157,7 +157,7 @@ class VolumeLeadersView(APIView):
 class FetchSnapshotView(APIView):
     permission_classes = [IsAdminOrReadOnly]
 
-    def post(self, request: Request) -> Response:
+    def post(self, request: Request, **kwargs) -> Response:
         serializer = FetchSnapshotSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         source = serializer.validated_data["source"]
@@ -170,7 +170,7 @@ class FetchSnapshotView(APIView):
 
 @task_status_schema
 class TaskStatusView(APIView):
-    def get(self, request: Request, task_id: str) -> Response:
+    def get(self, request: Request, task_id: str, **kwargs) -> Response:
         result = AsyncResult(task_id)
         response = {
             "task_id": task_id,
