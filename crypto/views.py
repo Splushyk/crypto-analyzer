@@ -9,6 +9,18 @@ from rest_framework.views import APIView
 
 from crypto.models import CoinPrice, Snapshot
 from crypto.permissions import IsAdminOrReadOnly
+from crypto.schemas import (
+    coin_history_schema,
+    fetch_snapshot_schema,
+    market_stats_schema,
+    snapshot_viewset_schema,
+    task_status_schema,
+    top_movers_schema,
+    volume_leaders_schema,
+    watchlist_delete_schema,
+    watchlist_get_schema,
+    watchlist_post_schema,
+)
 from crypto.serializers import (
     AddToWatchlistSerializer,
     CoinPriceFilterSerializer,
@@ -37,12 +49,14 @@ class SnapshotPagination(PageNumberPagination):
     page_size = 2
 
 
+@snapshot_viewset_schema
 class SnapshotViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Snapshot.objects.order_by("-created_at").prefetch_related("prices")
     serializer_class = SnapshotSerializer
     pagination_class = SnapshotPagination
 
 
+@coin_history_schema
 class CoinPriceHistoryView(generics.ListAPIView):
     serializer_class = CoinPriceSerializer
 
@@ -64,12 +78,14 @@ class CoinPriceHistoryView(generics.ListAPIView):
 class WatchlistView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @watchlist_get_schema
     def get(self, request: Request) -> Response:
         assert request.user.is_authenticated
         user_watchlist = get_user_watchlist(request.user)
         serializer = WatchlistSerializer(user_watchlist, many=True)
         return Response(serializer.data)
 
+    @watchlist_post_schema
     def post(self, request: Request) -> Response:
         assert request.user.is_authenticated
         serializer = AddToWatchlistSerializer(data=request.data)
@@ -95,6 +111,7 @@ class WatchlistView(APIView):
 class WatchlistDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @watchlist_delete_schema
     def delete(self, request: Request, symbol: str) -> Response:
         assert request.user.is_authenticated
         if remove_from_watchlist(request.user, symbol):
@@ -106,6 +123,7 @@ class WatchlistDetailView(APIView):
             )
 
 
+@market_stats_schema
 class MarketStatsView(APIView):
     def get(self, request: Request) -> Response:
         stats = get_market_stats()
@@ -118,6 +136,7 @@ class MarketStatsView(APIView):
         return Response(serializer.data)
 
 
+@top_movers_schema
 class TopMoversView(APIView):
     def get(self, request: Request) -> Response:
         tops = get_top_movers()
@@ -130,6 +149,7 @@ class TopMoversView(APIView):
         return Response(serializer.data)
 
 
+@volume_leaders_schema
 class VolumeLeadersView(APIView):
     def get(self, request: Request) -> Response:
         leaders = get_volume_leaders()
@@ -142,6 +162,7 @@ class VolumeLeadersView(APIView):
         return Response(serializer.data)
 
 
+@fetch_snapshot_schema
 class FetchSnapshotView(APIView):
     permission_classes = [IsAdminOrReadOnly]
 
@@ -156,6 +177,7 @@ class FetchSnapshotView(APIView):
         )
 
 
+@task_status_schema
 class TaskStatusView(APIView):
     def get(self, request: Request, task_id: str) -> Response:
         result = AsyncResult(task_id)
