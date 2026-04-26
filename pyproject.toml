@@ -15,6 +15,7 @@ dependencies = [
     "django-debug-toolbar>=6.3.0",
     "django-environ>=0.13.0",
     "django-extensions>=4.1",
+    "django-filter>=25.2",
     "djangorestframework>=3.17.1",
     "djangorestframework-simplejwt>=5.5.1",
     "drf-spectacular>=0.29.0",
@@ -91,6 +92,10 @@ django_settings_module = "config.settings"
 
 [[tool.mypy.overrides]]
 module = ["environ", "environ.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["django_filters", "django_filters.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

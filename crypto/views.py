@@ -1,5 +1,5 @@
 from celery.result import AsyncResult
-from django.db.models import QuerySet
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, status, viewsets
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
@@ -7,6 +7,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from crypto.filters import CoinPriceFilter
 from crypto.models import CoinPrice, Snapshot
 from crypto.permissions import IsAdminOrReadOnly
 from crypto.schemas import (
@@ -23,7 +24,6 @@ from crypto.schemas import (
 )
 from crypto.serializers import (
     AddToWatchlistSerializer,
-    CoinPriceFilterSerializer,
     CoinPriceSerializer,
     FetchSnapshotSerializer,
     MarketStatsSerializer,
@@ -59,20 +59,9 @@ class SnapshotViewSet(viewsets.ReadOnlyModelViewSet):
 @coin_history_schema
 class CoinPriceHistoryView(generics.ListAPIView):
     serializer_class = CoinPriceSerializer
-
-    def get_queryset(self) -> QuerySet[CoinPrice]:
-        filter_serializer = CoinPriceFilterSerializer(data=self.request.query_params)
-        filter_serializer.is_valid(raise_exception=True)
-        filters = filter_serializer.validated_data
-
-        queryset = CoinPrice.objects.all().order_by("-snapshot__created_at", "-id")
-        if "symbol" in filters:
-            queryset = queryset.filter(symbol=filters["symbol"])
-        if "min_price" in filters:
-            queryset = queryset.filter(price__gte=filters["min_price"])
-        if "max_price" in filters:
-            queryset = queryset.filter(price__lte=filters["max_price"])
-        return queryset
+    filterset_class = CoinPriceFilter
+    filter_backends = [DjangoFilterBackend]
+    queryset = CoinPrice.objects.all().order_by("-snapshot__created_at", "-id")
 
 
 class WatchlistView(APIView):

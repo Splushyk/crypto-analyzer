@@ -66,10 +66,18 @@ def test_coins_filter(analytics_snapshot, query, expected_symbols):
 
 
 def test_coins_filter_returns_400_on_invalid_min_price(analytics_snapshot):
-    """Нечисловое значение min_price -> 400 от сериализатора-валидатора."""
+    """Нечисловое значение min_price -> 400 от django-filter."""
     client = APIClient()
     response = client.get("/api/coins/?min_price=abc")
     assert response.status_code == 400
+
+
+def test_coin_price_filter_symbol_is_case_insensitive(coins):
+    """symbol-фильтр работает регистронезависимо (lookup_expr=iexact)."""
+    client = APIClient()
+    response = client.get("/api/coins/?symbol=c1")
+    assert response.status_code == 200
+    assert response.data["count"] == 2
 
 
 # Тесты market-stats

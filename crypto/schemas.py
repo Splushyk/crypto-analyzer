@@ -40,30 +40,6 @@ coin_history_schema = extend_schema(
         "Возвращает плоский список записей цен (по всем снимкам), отсортированный "
         "от свежих к старым. Поддерживает фильтрацию по символу и диапазону цены."
     ),
-    parameters=[
-        OpenApiParameter(
-            name="symbol",
-            type=OpenApiTypes.STR,
-            location=OpenApiParameter.QUERY,
-            required=False,
-            description="Тикер монеты (точное совпадение).",
-            examples=[OpenApiExample("BTC", value="BTC")],
-        ),
-        OpenApiParameter(
-            name="min_price",
-            type=OpenApiTypes.DECIMAL,
-            location=OpenApiParameter.QUERY,
-            required=False,
-            description="Нижняя граница цены, включительно.",
-        ),
-        OpenApiParameter(
-            name="max_price",
-            type=OpenApiTypes.DECIMAL,
-            location=OpenApiParameter.QUERY,
-            required=False,
-            description="Верхняя граница цены, включительно.",
-        ),
-    ],
     responses={
         200: CoinPriceSerializer(many=True),
         400: OpenApiResponse(description="Некорректные значения фильтров"),
