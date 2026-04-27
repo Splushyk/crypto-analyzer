@@ -45,6 +45,7 @@ cp .env.example .env  # затем заполнить значения
 | `CELERY_BROKER_URL` | URL Redis (по умолчанию `redis://localhost:6379/0`) |
 | `CELERY_RESULT_BACKEND` | URL Redis для результатов |
 | `CRYPTO_PROVIDER` | `coingecko` или `cmc` (по умолчанию `coingecko`) |
+| `CMC_API_KEY` | API-ключ CoinMarketCap (нужен только при `CRYPTO_PROVIDER=cmc`) |
 
 ### Миграции и суперпользователь
 
@@ -126,6 +127,7 @@ Access TTL — 5 минут, refresh — 1 день, refresh-токены рот
 
 **Пагинация:**
 * По умолчанию — `PageNumberPagination`, `page_size=10` (параметры: `?page=N`).
+* Для `/api/v1/snapshots/` — `PageNumberPagination` с `page_size=2` (снимок — тяжёлый объект с вложенными ценами).
 * Для истории цен (`/api/v1/coins/`) — `CursorPagination` (параметр: `?cursor=...`).
 
 **Фильтрация:** через `django-filter`. Сортировка — через `OrderingFilter` (где явно подключена).
@@ -149,12 +151,11 @@ Access TTL — 5 минут, refresh — 1 день, refresh-токены рот
 | --- | --- | --- | --- |
 | `GET` | `/api/v1/snapshots/` | Anyone | Список снимков с пагинацией, ordering по `created_at` / `total_market_cap` |
 | `GET` | `/api/v1/snapshots/{id}/` | Anyone | Детали снимка с вложенными ценами |
-| `POST` | `/api/v1/snapshots/` | Admin | Создание снимка |
 | `GET` | `/api/v1/coins/` | Anyone | История цен. Фильтры: `symbol`, `min_price`, `max_price`. CursorPagination |
 | `GET` | `/api/v1/analytics/market-stats/` | Anyone | min/max/avg цена и суммарная капитализация по последнему снимку |
 | `GET` | `/api/v1/analytics/top-movers/` | Anyone | Топ-5 по росту и топ-5 по падению за 24ч |
 | `GET` | `/api/v1/analytics/volume-leaders/` | Anyone | Топ-10 монет по объёму торгов |
-| `POST` | `/api/v1/tasks/fetch-snapshot/` | Anyone | Запуск задачи сбора, возвращает `202` и `task_id` |
+| `POST` | `/api/v1/tasks/fetch-snapshot/` | Staff | Запуск задачи сбора, возвращает `202` и `task_id` |
 | `GET` | `/api/v1/tasks/{task_id}/status/` | Anyone | Статус задачи (`PENDING` / `STARTED` / `SUCCESS` / `FAILURE`) |
 | `POST` | `/api/token/` | — | Получение access/refresh токенов |
 | `POST` | `/api/token/refresh/` | — | Обновление access-токена |
