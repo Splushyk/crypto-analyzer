@@ -61,18 +61,78 @@ def test_fetch_snapshot_task_retries_on_api_error(mocker, sample_coin, settings)
     assert Snapshot.objects.count() == 1
 
 
-def test_fetch_snapshot_endpoint_returns_202_with_task_id(mocker):
-    """POST на эндпоинт запуска задачи возвращает 202 Accepted и task_id.
-
+@pytest.mark.django_db
+def test_fetch_snapshot_endpoint_returns_202_with_task_id(mocker, admin_client):
+    """
+    POST на эндпоинт запуска задачи возвращает 202 Accepted и task_id.
     Задача не выполняется по-настоящему: мокаем .delay на уровне view,
-    проверяем только контракт эндпоинта.
+    проверяем только контракт эндпоинта. Эндпоинт требует staff-прав,
+    поэтому используется admin_client.
     """
     mock_delay = mocker.patch("crypto.views.fetch_snapshot_task.delay")
     mock_delay.return_value.id = "fake-task-id"
 
-    client = APIClient()
-    response = client.post("/api/tasks/fetch-snapshot/", {}, format="json")
+    response = admin_client.post("/api/v1/tasks/fetch-snapshot/", {}, format="json")
 
     assert response.status_code == 202
     assert response.data["task_id"] == "fake-task-id"
     mock_delay.assert_called_once_with("coingecko")
+
+
+def test_fetch_snapshot_endpoint_unauthorized_for_anonymous(mocker):
+    """
+    Анонимный запрос на эндпоинт запуска задачи получает 401.
+    Celery-задача при этом не должна планироваться.
+    """
+    mock_delay = mocker.patch("crypto.views.fetch_snapshot_task.delay")
+
+    client = APIClient()
+    response = client.post("/api/v1/tasks/fetch-snapshot/", {}, format="json")
+
+    assert response.status_code == 401
+    mock_delay.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_fetch_snapshot_endpoint_forbidden_for_regular_user(mocker, auth_client_a):
+    """
+    Обычный аутентифицированный пользователь без is_staff получает 403.
+    Celery-задача при этом не должна планироваться.
+    """
+    mock_delay = mocker.patch("crypto.views.fetch_snapshot_task.delay")
+
+    response = auth_client_a.post("/api/v1/tasks/fetch-snapshot/", {}, format="json")
+
+    assert response.status_code == 403
+    mock_delay.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "celery_status, successful, failed, extra",
+    [
+        ("PENDING", False, False, {}),
+        ("SUCCESS", True, False, {"result": 42}),
+        ("FAILURE", False, True, {"failure_reason": "Task failed."}),
+    ],
+    ids=["pending", "success", "failed"],
+)
+def test_task_status(mocker, celery_status, successful, failed, extra):
+    """TaskStatusView отдаёт корректную форму ответа для PENDING/SUCCESS/FAILURE.
+
+    Для FAILURE проверяется, что используется новое имя поля "failure_reason",
+    а не legacy "error" (равенство dict'ов это гарантирует).
+    """
+    mock_result = mocker.Mock(status=celery_status, result=extra.get("result"))
+    mock_result.successful.return_value = successful
+    mock_result.failed.return_value = failed
+    mocker.patch("crypto.views.AsyncResult", return_value=mock_result)
+
+    client = APIClient()
+    response = client.get("/api/v1/tasks/some-task-id/status/")
+
+    assert response.status_code == 200
+    assert response.data == {
+        "task_id": "some-task-id",
+        "status": celery_status,
+        **extra,
+    }

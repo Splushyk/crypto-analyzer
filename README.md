@@ -23,11 +23,72 @@ Django REST API для сбора, хранения и анализа рыноч
 * **Logic**: Провайдеры (оркестрация получения данных) и Анализатор (фильтрация, сортировка, расчет метрик).
 * **Entry Point**: `main.py` — CLI-интерфейс на базе Typer с поддержкой работы с историей данных.
 
+## Установка
+
+Зависимости: Python 3.14+, Postgres, Redis, пакетный менеджер [`uv`](https://docs.astral.sh/uv/).
+
+```bash
+git clone <repo-url>
+cd crypto-analyzer
+uv sync
+cp .env.example .env  # затем заполнить значения
+```
+
+### Переменные окружения (`.env`)
+
+| Переменная | Назначение |
+| --- | --- |
+| `SECRET_KEY` | Django secret key |
+| `DEBUG` | `True` для разработки, `False` для продакшена |
+| `ALLOWED_HOSTS` | Список через запятую, напр. `localhost,127.0.0.1` |
+| `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` | Параметры подключения к Postgres |
+| `CELERY_BROKER_URL` | URL Redis (по умолчанию `redis://localhost:6379/0`) |
+| `CELERY_RESULT_BACKEND` | URL Redis для результатов |
+| `CRYPTO_PROVIDER` | `coingecko` или `cmc` (по умолчанию `coingecko`) |
+| `CMC_API_KEY` | API-ключ CoinMarketCap (нужен только при `CRYPTO_PROVIDER=cmc`) |
+
+### Миграции и суперпользователь
+
+```bash
+uv run python manage.py migrate
+uv run python manage.py createsuperuser
+```
+
+## Запуск
+
+### Development
+
+```bash
+uv run python manage.py runserver
+uv run celery -A config worker -l INFO
+uv run celery -A config beat -l INFO
+```
+
+### Production (Gunicorn + Whitenoise)
+
+Перед первым запуском (и после каждого деплоя) собрать статику:
+
+```bash
+uv run python manage.py collectstatic --noinput
+```
+
+Запуск приложения:
+
+```bash
+uv run gunicorn config.wsgi:application
+```
+
+По умолчанию слушает `127.0.0.1:8000` с одним sync-воркером. Для прод-окружения адрес и количество воркеров задаются флагами `--bind` и `--workers`.
+
+Статика (админка, Swagger UI, DRF browsable API) отдаётся через [Whitenoise](https://whitenoise.readthedocs.io/) с хешированием имён и gzip-сжатием (`CompressedManifestStaticFilesStorage`).
+
 ## Команды
 
 ### Django management-команды
-* `python manage.py fetch_snapshot --source [coingecko|cmc]` — постановка задачи сбора в очередь Celery (вернёт `task_id`).
-* `python manage.py runserver` — запуск REST API.
+* `uv run python manage.py fetch_snapshot --source [coingecko|cmc]` — постановка задачи сбора в очередь Celery (вернёт `task_id`).
+* `uv run python manage.py runserver` — запуск dev REST API.
+* `uv run python manage.py migrate` — применение миграций.
+* `uv run python manage.py collectstatic --noinput` — сборка статики для прод.
 
 ### CLI (legacy, `src/main.py`)
 * `run` — основной цикл: загрузка, анализ, вывод и сохранение данных.
@@ -43,26 +104,66 @@ Django-слой использует PostgreSQL. Legacy CLI из `src/` прод
 * **CoinPrice**: содержит детальные метрики каждой монеты, связанные с конкретным снимком.
 
 **REST API (Django REST Framework)**
-* `GET /api/snapshots/` — список снимков с пагинацией
-* `GET /api/snapshots/{id}/` — детали снимка с вложенными ценами
-* `GET /api/coins/?symbol=BTC&min_price=X&max_price=Y` — история цен монеты с фильтрами по символу и диапазону цен (все параметры опциональны)
-* `GET /api/analytics/market-stats/` — агрегаты по последнему снимку: min/max/avg цена и суммарная рыночная капитализация
-* `GET /api/analytics/top-movers/` — топ-5 монет по росту и топ-5 по падению за 24ч из последнего снимка
-* `GET /api/analytics/volume-leaders/` — топ-10 монет по объёму торгов из последнего снимка
-* `POST /api/tasks/fetch-snapshot/` — запуск задачи сбора снимка, возвращает `202 Accepted` и `task_id`
-* `GET /api/tasks/{task_id}/status/` — статус задачи по `task_id` (`PENDING` / `STARTED` / `SUCCESS` / `FAILURE`)
 
-**Watchlist API (JWT)**
+Все бизнес-эндпоинты находятся под префиксом `/api/v1/` (`URLPathVersioning`). Эндпоинты JWT-токенов и документации (`/api/token/`, `/api/docs/` и т.п.) — без версии.
 
-Персональный список отслеживаемых монет с JWT-аутентификацией через simplejwt.
+**Аутентификация:** JWT (`rest_framework_simplejwt`). Access-токен передаётся в заголовке:
 
-- `POST /api/token/` — получение access/refresh токенов (без JWT)
-- `POST /api/token/refresh/` — обновление access-токена (без JWT)
-- `GET /api/watchlist/` — список монет текущего пользователя (JWT)
-- `POST /api/watchlist/` — добавление монеты в watchlist (JWT)
-- `DELETE /api/watchlist/<symbol>/` — удаление монеты из watchlist (JWT)
+```
+Authorization: Bearer <access_token>
+```
 
-Бизнес-логика вынесена в сервисный слой (`services.py`), который не зависит от DRF. Перед сохранением монеты символ валидируется через API биржи.
+Access TTL — 5 минут, refresh — 1 день, refresh-токены ротируются.
+
+**Throttling** (по ролям):
+
+| Роль | Лимит |
+| --- | --- |
+| Анонимный | 5 запросов / минуту |
+| Авторизованный | 100 запросов / минуту |
+| Суперпользователь | 1000 запросов / минуту |
+
+При превышении — `429 Too Many Requests`.
+
+**Пагинация:**
+* По умолчанию — `PageNumberPagination`, `page_size=10` (параметры: `?page=N`).
+* Для `/api/v1/snapshots/` — `PageNumberPagination` с `page_size=2` (снимок — тяжёлый объект с вложенными ценами).
+* Для истории цен (`/api/v1/coins/`) — `CursorPagination` (параметр: `?cursor=...`).
+
+**Фильтрация:** через `django-filter`. Сортировка — через `OrderingFilter` (где явно подключена).
+
+**Документация:**
+* Swagger UI — `/api/docs/` (с кнопкой Authorize для JWT).
+* ReDoc — `/api/redoc/`.
+* OpenAPI-схема — `/api/schema/`.
+
+**Формат ошибок:** все ошибки приведены к единому виду через кастомный `exception_handler`:
+
+```json
+{"error": "human-readable message", "code": "machine_readable_code"}
+```
+
+Покрываются: `400`, `401`, `403`, `404`, `409`, `429`, `500`.
+
+**Эндпоинты:**
+
+| Метод | Путь | Права | Описание |
+| --- | --- | --- | --- |
+| `GET` | `/api/v1/snapshots/` | Anyone | Список снимков с пагинацией, ordering по `created_at` / `total_market_cap` |
+| `GET` | `/api/v1/snapshots/{id}/` | Anyone | Детали снимка с вложенными ценами |
+| `GET` | `/api/v1/coins/` | Anyone | История цен. Фильтры: `symbol`, `min_price`, `max_price`. CursorPagination |
+| `GET` | `/api/v1/analytics/market-stats/` | Anyone | min/max/avg цена и суммарная капитализация по последнему снимку |
+| `GET` | `/api/v1/analytics/top-movers/` | Anyone | Топ-5 по росту и топ-5 по падению за 24ч |
+| `GET` | `/api/v1/analytics/volume-leaders/` | Anyone | Топ-10 монет по объёму торгов |
+| `POST` | `/api/v1/tasks/fetch-snapshot/` | Staff | Запуск задачи сбора, возвращает `202` и `task_id` |
+| `GET` | `/api/v1/tasks/{task_id}/status/` | Anyone | Статус задачи (`PENDING` / `STARTED` / `SUCCESS` / `FAILURE`) |
+| `POST` | `/api/token/` | — | Получение access/refresh токенов |
+| `POST` | `/api/token/refresh/` | — | Обновление access-токена |
+| `GET` | `/api/v1/watchlist/` | JWT | Список монет текущего пользователя |
+| `POST` | `/api/v1/watchlist/` | JWT | Добавить монету в watchlist |
+| `DELETE` | `/api/v1/watchlist/{symbol}/` | JWT | Удалить монету из watchlist |
+
+Бизнес-логика watchlist вынесена в сервисный слой (`services.py`), который не зависит от DRF. Перед сохранением монеты символ валидируется через API биржи.
 
 ## Фоновые задачи (Celery)
 Сбор снимка рынка выполняется асинхронно через Celery. Брокер и result backend — Redis.
@@ -73,8 +174,8 @@ Django-слой использует PostgreSQL. Legacy CLI из `src/` прод
 
 **Запуск воркера и планировщика:**
 ```bash
-celery -A config worker -l INFO
-celery -A config beat -l INFO
+uv run celery -A config worker -l INFO
+uv run celery -A config beat -l INFO
 ```
 
 ## Тестирование
@@ -93,9 +194,17 @@ celery -A config beat -l INFO
 ### Запуск тестов:
 ```bash
 # Общая команда (конфигурация запуска настроена в pyproject.toml)
-pytest
+uv run pytest
 
 # Запуск по категориям
-pytest -m unit
-pytest -m integration
+uv run pytest -m unit
+uv run pytest -m integration
+```
+
+## Разработка
+
+Перед коммитом запустить линтеры и форматтеры:
+
+```bash
+uv run pre-commit run --all-files
 ```

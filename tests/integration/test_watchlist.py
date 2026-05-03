@@ -12,7 +12,7 @@ from rest_framework.test import APIClient
 def test_watchlist_requires_auth():
     """Без токена — 401."""
     client = APIClient()
-    response = client.get("/api/watchlist/")
+    response = client.get("/api/v1/watchlist/")
     assert response.status_code == 401
 
 
@@ -20,10 +20,10 @@ def test_existing_endpoints_remain_public(snapshots):
     """Публичные эндпоинты работают без токена."""
     client = APIClient()
 
-    response = client.get("/api/snapshots/")
+    response = client.get("/api/v1/snapshots/")
     assert response.status_code == 200
 
-    response = client.get("/api/coins/")
+    response = client.get("/api/v1/coins/")
     assert response.status_code == 200
 
 
@@ -32,7 +32,7 @@ def test_existing_endpoints_remain_public(snapshots):
 
 def test_add_coin_to_watchlist(auth_client_a, mock_api_symbol_found):
     """POST /api/watchlist/ — добавление монеты, ответ 201."""
-    response = auth_client_a.post("/api/watchlist/", {"symbol": "btc"})
+    response = auth_client_a.post("/api/v1/watchlist/", {"symbol": "btc"})
 
     assert response.status_code == 201
     assert response.data["symbol"] == "BTC"
@@ -40,23 +40,31 @@ def test_add_coin_to_watchlist(auth_client_a, mock_api_symbol_found):
 
 
 def test_add_invalid_symbol(auth_client_a, mock_api_symbol_not_found):
-    """POST с несуществующим символом — 400."""
-    response = auth_client_a.post("/api/watchlist/", {"symbol": "NONEXISTENT"})
+    """POST с несуществующим символом — 400 в едином формате ошибок."""
+    response = auth_client_a.post("/api/v1/watchlist/", {"symbol": "NONEXISTENT"})
     assert response.status_code == 400
+    assert response.data == {
+        "error": "Symbol not found on exchange.",
+        "code": "symbol_not_found",
+    }
 
 
 def test_add_duplicate_symbol(auth_client_a, mock_api_symbol_found):
-    """Повторное добавление той же монеты — 409."""
-    auth_client_a.post("/api/watchlist/", {"symbol": "btc"})
-    response = auth_client_a.post("/api/watchlist/", {"symbol": "btc"})
+    """Повторное добавление той же монеты — 409 в едином формате ошибок."""
+    auth_client_a.post("/api/v1/watchlist/", {"symbol": "btc"})
+    response = auth_client_a.post("/api/v1/watchlist/", {"symbol": "btc"})
     assert response.status_code == 409
+    assert response.data == {
+        "error": "Coin already in your watchlist.",
+        "code": "watchlist_duplicate",
+    }
 
 
 def test_list_watchlist(auth_client_a, mock_api_symbol_found):
     """GET /api/watchlist/ — список монет пользователя."""
-    auth_client_a.post("/api/watchlist/", {"symbol": "btc"})
+    auth_client_a.post("/api/v1/watchlist/", {"symbol": "btc"})
 
-    response = auth_client_a.get("/api/watchlist/")
+    response = auth_client_a.get("/api/v1/watchlist/")
     assert response.status_code == 200
     assert len(response.data) == 1
     assert response.data[0]["symbol"] == "BTC"
@@ -64,20 +72,24 @@ def test_list_watchlist(auth_client_a, mock_api_symbol_found):
 
 def test_delete_from_watchlist(auth_client_a, mock_api_symbol_found):
     """DELETE /api/watchlist/BTC/ — удаление, ответ 204."""
-    auth_client_a.post("/api/watchlist/", {"symbol": "btc"})
+    auth_client_a.post("/api/v1/watchlist/", {"symbol": "btc"})
 
-    response = auth_client_a.delete("/api/watchlist/BTC/")
+    response = auth_client_a.delete("/api/v1/watchlist/BTC/")
     assert response.status_code == 204
 
     # Проверяем что список пуст
-    response = auth_client_a.get("/api/watchlist/")
+    response = auth_client_a.get("/api/v1/watchlist/")
     assert len(response.data) == 0
 
 
 def test_delete_nonexistent_symbol(auth_client_a):
-    """DELETE несуществующей монеты — 404."""
-    response = auth_client_a.delete("/api/watchlist/BTC/")
+    """DELETE несуществующей монеты — 404 в едином формате ошибок."""
+    response = auth_client_a.delete("/api/v1/watchlist/BTC/")
     assert response.status_code == 404
+    assert response.data == {
+        "error": "Coin is not in your watchlist.",
+        "code": "watchlist_item_not_found",
+    }
 
 
 # Тест изоляции данных между пользователями
@@ -86,13 +98,13 @@ def test_delete_nonexistent_symbol(auth_client_a):
 def test_user_isolation(auth_client_a, auth_client_b, mock_api_symbol_found):
     """Пользователь A не видит данные пользователя B."""
     # A добавляет BTC
-    auth_client_a.post("/api/watchlist/", {"symbol": "btc"})
+    auth_client_a.post("/api/v1/watchlist/", {"symbol": "btc"})
 
     # B видит пустой список
-    response = auth_client_b.get("/api/watchlist/")
+    response = auth_client_b.get("/api/v1/watchlist/")
     assert response.status_code == 200
     assert len(response.data) == 0
 
     # A видит свою монету
-    response = auth_client_a.get("/api/watchlist/")
+    response = auth_client_a.get("/api/v1/watchlist/")
     assert len(response.data) == 1

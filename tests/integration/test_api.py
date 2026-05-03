@@ -3,6 +3,7 @@
 Тестируется полный HTTP-цикл: запрос -> view -> сервис -> БД -> ответ.
 """
 
+from decimal import Decimal
 from typing import cast
 
 import pytest
@@ -14,7 +15,7 @@ from rest_framework.test import APIClient
 
 def test_snapshots_list_is_paginated(snapshots):
     client = APIClient()
-    response = client.get("/api/snapshots/")
+    response = client.get("/api/v1/snapshots/")
     assert response.status_code == 200
     assert response.data["count"] == 3
     assert response.data["next"] is not None
@@ -22,12 +23,25 @@ def test_snapshots_list_is_paginated(snapshots):
     assert len(response.data["results"]) <= page_size
 
 
+@pytest.mark.parametrize(
+    "param, reverse",
+    [("total_market_cap", False), ("-total_market_cap", True)],
+)
+def test_snapshots_ordering_by_total_market_cap(snapshots, param, reverse):
+    """OrderingFilter сортирует снимки по total_market_cap (asc и desc)."""
+    client = APIClient()
+    response = client.get(f"/api/v1/snapshots/?ordering={param}")
+    assert response.status_code == 200
+    caps = [Decimal(s["total_market_cap"]) for s in response.data["results"]]
+    assert caps == sorted(caps, reverse=reverse)
+
+
 def test_snapshots_list_uses_prefetch_related(coins, django_assert_num_queries):
     """N+1 guard: список снимков должен делать фиксированное число SQL-запросов
     независимо от количества снимков и связанных цен."""
     client = APIClient()
     with django_assert_num_queries(3):
-        response = client.get("/api/snapshots/")
+        response = client.get("/api/v1/snapshots/")
     assert response.status_code == 200
 
 
@@ -36,9 +50,9 @@ def test_snapshots_list_uses_prefetch_related(coins, django_assert_num_queries):
 
 def test_coin_price_history(coins):
     client = APIClient()
-    response = client.get("/api/coins/?symbol=C1")
+    response = client.get("/api/v1/coins/?symbol=C1")
     assert response.status_code == 200
-    assert response.data["count"] == 2
+    assert len(response.data["results"]) == 2
 
 
 @pytest.mark.parametrize(
@@ -58,18 +72,26 @@ def test_coin_price_history(coins):
 )
 def test_coins_filter(analytics_snapshot, query, expected_symbols):
     client = APIClient()
-    response = client.get(f"/api/coins/?{query}")
+    response = client.get(f"/api/v1/coins/?{query}")
     assert response.status_code == 200
-    assert response.data["count"] == len(expected_symbols)
+    assert len(response.data["results"]) == len(expected_symbols)
     symbols = {c["symbol"] for c in response.data["results"]}
     assert symbols == expected_symbols
 
 
 def test_coins_filter_returns_400_on_invalid_min_price(analytics_snapshot):
-    """Нечисловое значение min_price -> 400 от сериализатора-валидатора."""
+    """Нечисловое значение min_price -> 400 от django-filter."""
     client = APIClient()
-    response = client.get("/api/coins/?min_price=abc")
+    response = client.get("/api/v1/coins/?min_price=abc")
     assert response.status_code == 400
+
+
+def test_coin_price_filter_symbol_is_case_insensitive(coins):
+    """symbol-фильтр работает регистронезависимо (lookup_expr=iexact)."""
+    client = APIClient()
+    response = client.get("/api/v1/coins/?symbol=c1")
+    assert response.status_code == 200
+    assert len(response.data["results"]) == 2
 
 
 # Тесты market-stats
@@ -77,7 +99,7 @@ def test_coins_filter_returns_400_on_invalid_min_price(analytics_snapshot):
 
 def test_market_stats_returns_aggregates_for_latest_snapshot(analytics_snapshot):
     client = APIClient()
-    response = client.get("/api/analytics/market-stats/")
+    response = client.get("/api/v1/analytics/market-stats/")
     assert response.status_code == 200
     assert response.data["min_price"] == "10.000000"
     assert response.data["max_price"] == "100.000000"
@@ -88,14 +110,18 @@ def test_market_stats_returns_aggregates_for_latest_snapshot(analytics_snapshot)
 def test_market_stats_returns_404_when_latest_snapshot_is_empty(snapshots):
     """snapshots фикстура создаёт 3 снимка без цен — последний пустой."""
     client = APIClient()
-    response = client.get("/api/analytics/market-stats/")
+    response = client.get("/api/v1/analytics/market-stats/")
     assert response.status_code == 404
 
 
 def test_market_stats_returns_404_when_no_snapshots(db):
     client = APIClient()
-    response = client.get("/api/analytics/market-stats/")
+    response = client.get("/api/v1/analytics/market-stats/")
     assert response.status_code == 404
+    assert response.data == {
+        "error": "No data available for analysis.",
+        "code": "no_data_for_analysis",
+    }
 
 
 # Тесты top-movers
@@ -103,7 +129,7 @@ def test_market_stats_returns_404_when_no_snapshots(db):
 
 def test_top_movers_returns_sorted_gainers_and_losers(analytics_snapshot):
     client = APIClient()
-    response = client.get("/api/analytics/top-movers/")
+    response = client.get("/api/v1/analytics/top-movers/")
     assert response.status_code == 200
 
     gainers = response.data["top_gainers"]
@@ -118,7 +144,7 @@ def test_top_movers_returns_sorted_gainers_and_losers(analytics_snapshot):
 
 def test_top_movers_returns_404_when_latest_snapshot_is_empty(snapshots):
     client = APIClient()
-    response = client.get("/api/analytics/top-movers/")
+    response = client.get("/api/v1/analytics/top-movers/")
     assert response.status_code == 404
 
 
@@ -127,7 +153,7 @@ def test_top_movers_has_no_n_plus_one(analytics_snapshot, django_assert_num_quer
     от количества монет в снимке."""
     client = APIClient()
     with django_assert_num_queries(4):
-        response = client.get("/api/analytics/top-movers/")
+        response = client.get("/api/v1/analytics/top-movers/")
     assert response.status_code == 200
 
 
@@ -136,7 +162,7 @@ def test_top_movers_has_no_n_plus_one(analytics_snapshot, django_assert_num_quer
 
 def test_volume_leaders_returns_coins_desc_sorted(analytics_snapshot):
     client = APIClient()
-    response = client.get("/api/analytics/volume-leaders/")
+    response = client.get("/api/v1/analytics/volume-leaders/")
     assert response.status_code == 200
 
     leaders = response.data["leaders"]
@@ -159,7 +185,7 @@ def test_volume_leaders_returns_coins_desc_sorted(analytics_snapshot):
 
 def test_volume_leaders_returns_404_when_latest_snapshot_is_empty(snapshots):
     client = APIClient()
-    response = client.get("/api/analytics/volume-leaders/")
+    response = client.get("/api/v1/analytics/volume-leaders/")
     assert response.status_code == 404
 
 
@@ -170,5 +196,5 @@ def test_volume_leaders_has_no_n_plus_one(
     от количества монет в снимке."""
     client = APIClient()
     with django_assert_num_queries(3):
-        response = client.get("/api/analytics/volume-leaders/")
+        response = client.get("/api/v1/analytics/volume-leaders/")
     assert response.status_code == 200
