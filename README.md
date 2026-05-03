@@ -105,7 +105,7 @@ Django-слой использует PostgreSQL. Legacy CLI из `src/` прод
 
 **REST API (Django REST Framework)**
 
-Все бизнес-эндпоинты находятся под префиксом `/api/v1/` (`URLPathVersioning`). Эндпоинты JWT-токенов и документации (`/api/token/`, `/api/docs/` и т.п.) — без версии.
+Все бизнес-эндпоинты находятся под префиксом `/api/v1/` (`URLPathVersioning`). Эндпоинты JWT-токенов и документации (`/api/auth/token/`, `/api/docs/` и т.п.) — без версии.
 
 **Аутентификация:** JWT (`rest_framework_simplejwt`). Access-токен передаётся в заголовке:
 
@@ -157,8 +157,8 @@ Access TTL — 5 минут, refresh — 1 день, refresh-токены рот
 | `GET` | `/api/v1/analytics/volume-leaders/` | Anyone | Топ-10 монет по объёму торгов |
 | `POST` | `/api/v1/tasks/fetch-snapshot/` | Staff | Запуск задачи сбора, возвращает `202` и `task_id` |
 | `GET` | `/api/v1/tasks/{task_id}/status/` | Anyone | Статус задачи (`PENDING` / `STARTED` / `SUCCESS` / `FAILURE`) |
-| `POST` | `/api/token/` | — | Получение access/refresh токенов |
-| `POST` | `/api/token/refresh/` | — | Обновление access-токена |
+| `POST` | `/api/auth/token/` | — | Получение access/refresh токенов |
+| `POST` | `/api/auth/token/refresh/` | — | Обновление access-токена |
 | `GET` | `/api/v1/watchlist/` | JWT | Список монет текущего пользователя |
 | `POST` | `/api/v1/watchlist/` | JWT | Добавить монету в watchlist |
 | `DELETE` | `/api/v1/watchlist/{symbol}/` | JWT | Удалить монету из watchlist |
