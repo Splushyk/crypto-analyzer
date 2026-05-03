@@ -9,12 +9,16 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
+import os
+import sys
 from datetime import timedelta
 from pathlib import Path
 import environ
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+TESTING = "test" in sys.argv or "PYTEST_VERSION" in os.environ
 
 env = environ.Env(
     DEBUG=(bool, False)
@@ -32,6 +36,8 @@ SECRET_KEY = env('SECRET_KEY')
 DEBUG = env('DEBUG')
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
+
+INTERNAL_IPS = ["127.0.0.1"]
 
 # Application definition
 
@@ -57,6 +63,10 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+if not TESTING:
+    INSTALLED_APPS.append('debug_toolbar')
+    MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")
 
 ROOT_URLCONF = 'config.urls'
 
@@ -137,7 +147,7 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "ROTATE_REFRESH_TOKENS": True,
- }
+}
 
 # Провайдер для валидации символов криптовалют
 CRYPTO_PROVIDER = env('CRYPTO_PROVIDER', default='coingecko')

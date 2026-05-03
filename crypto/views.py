@@ -5,9 +5,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from crypto.models import Snapshot, CoinPrice
-from crypto.serializers import SnapshotSerializer, CoinPriceSerializer, WatchlistSerializer, AddToWatchlistSerializer
+from crypto.serializers import SnapshotSerializer, CoinPriceSerializer, WatchlistSerializer, AddToWatchlistSerializer, \
+    MarketStatsSerializer, TopMoversSerializer, VolumeLeadersSerializer, CoinPriceFilterSerializer
 from crypto.services import get_user_watchlist, add_to_watchlist, SymbolNotFoundError, ExistInWatchlistError, \
-    remove_from_watchlist
+    remove_from_watchlist, get_market_stats, get_top_movers, get_volume_leaders
 
 
 class SnapshotPagination(PageNumberPagination):
@@ -15,7 +16,7 @@ class SnapshotPagination(PageNumberPagination):
 
 
 class SnapshotViewSet(viewsets.ModelViewSet):
-    queryset = Snapshot.objects.all().order_by('-created_at')
+    queryset = Snapshot.objects.order_by('-created_at').prefetch_related('prices')
     serializer_class = SnapshotSerializer
     pagination_class = SnapshotPagination
     http_method_names = ['get', 'head', 'options']
@@ -25,11 +26,18 @@ class CoinPriceHistoryView(generics.ListAPIView):
     serializer_class = CoinPriceSerializer
 
     def get_queryset(self):
-        symbol = self.request.query_params.get('symbol')
-        if symbol is None:
-            return CoinPrice.objects.all().order_by('-snapshot__created_at')
+        filter_serializer = CoinPriceFilterSerializer(data=self.request.query_params)
+        filter_serializer.is_valid(raise_exception=True)
+        filters = filter_serializer.validated_data
 
-        return CoinPrice.objects.filter(symbol=symbol).order_by('-snapshot__created_at')
+        queryset = CoinPrice.objects.all().order_by('-snapshot__created_at', '-id')
+        if 'symbol' in filters:
+            queryset = queryset.filter(symbol=filters['symbol'])
+        if 'min_price' in filters:
+            queryset = queryset.filter(price__gte=filters['min_price'])
+        if 'max_price' in filters:
+            queryset = queryset.filter(price__lte=filters['max_price'])
+        return queryset
 
 
 class WatchlistView(APIView):
@@ -75,3 +83,39 @@ class WatchlistDetailView(APIView):
                 {"error": "Такой монеты не было в вашем списке отслеживаемых монет"},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+
+class MarketStatsView(APIView):
+    def get(self, request):
+        stats = get_market_stats()
+        if stats is None:
+            return Response(
+                {"error": "Нет данных для анализа"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        serializer = MarketStatsSerializer(stats)
+        return Response(serializer.data)
+
+
+class TopMoversView(APIView):
+    def get(self, request):
+        tops = get_top_movers()
+        if tops is None:
+            return Response(
+                {"error": "Нет данных для анализа"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        serializer = TopMoversSerializer(tops)
+        return Response(serializer.data)
+
+
+class VolumeLeadersView(APIView):
+    def get(self, request):
+        leaders = get_volume_leaders()
+        if leaders is None:
+            return Response(
+                {"error": "Нет данных для анализа"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        serializer = VolumeLeadersSerializer(leaders)
+        return Response(serializer.data)

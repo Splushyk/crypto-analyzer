@@ -14,6 +14,31 @@ def snapshots(db):
 
 
 @pytest.fixture
+def analytics_snapshot(db):
+    """Создаёт один снимок рынка с 10 монетами с известными значениями
+    для проверки аналитических эндпоинтов.
+
+    Значения подобраны так, чтобы легко проверялись агрегаты и сортировки:
+    - price:       10, 20, 30, ..., 100 (min=10, max=100, avg=55)
+    - change_24h:  +9, +7, +5, +3, +1, -1, -3, -5, -7, -9
+    - volume:      1000, 2000, ..., 10000
+    - market_cap:  100000, 200000, ..., 1000000 (sum=5500000)
+    """
+    snapshot = Snapshot.objects.create(total_market_cap=5500000)
+    for i in range(1, 11):
+        CoinPrice.objects.create(
+            snapshot=snapshot,
+            name=f"Coin{i}",
+            symbol=f"C{i}",
+            price=i * 10,
+            change_24h=11 - 2 * i,
+            volume=i * 1000,
+            market_cap=i * 100000,
+        )
+    return snapshot
+
+
+@pytest.fixture
 def coins(snapshots):
     snap_1, snap_2, snap_3 = snapshots
     c1_snap1 = CoinPrice.objects.create(
