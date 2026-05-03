@@ -88,7 +88,7 @@ def remove_from_watchlist(user: User, symbol: str) -> bool:
     Возвращает True если удалена, False если не найдена.
     """
     deleted_item = WatchlistItem.objects.filter(user=user, symbol=symbol).delete()
-    return True if deleted_item[0] == 1 else False
+    return bool(deleted_item[0])
 
 
 def _validate_coingecko(symbol: str) -> tuple[str, str]:
