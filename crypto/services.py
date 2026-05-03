@@ -98,11 +98,12 @@ def _validate_coingecko(symbol: str) -> tuple[str, str]:
     client = ApiClient(base_url="https://api.coingecko.com/api/v3")
     data = client.get_json(endpoint="/search", params={"query": symbol})
 
-    for coin in data["coins"]:
-        if coin["symbol"] == symbol.upper():
-            return coin["symbol"], coin["name"]
-
-    raise SymbolNotFoundOnExchangeError
+    symbol_upper = symbol.upper()
+    by_symbol = {c["symbol"]: c["name"] for c in data["coins"]}
+    name = by_symbol.get(symbol_upper)
+    if name is None:
+        raise SymbolNotFoundOnExchangeError
+    return symbol_upper, name
 
 
 def _validate_cmc(symbol: str) -> tuple[str, str]:
@@ -116,11 +117,12 @@ def _validate_cmc(symbol: str) -> tuple[str, str]:
         params={"symbol": symbol.upper()},
     )
 
-    for coin in data.get("data", []):
-        if coin["symbol"] == symbol.upper():
-            return coin["symbol"], coin["name"]
-
-    raise SymbolNotFoundOnExchangeError
+    symbol_upper = symbol.upper()
+    by_symbol = {c["symbol"]: c["name"] for c in data.get("data", [])}
+    name = by_symbol.get(symbol_upper)
+    if name is None:
+        raise SymbolNotFoundOnExchangeError
+    return symbol_upper, name
 
 
 VALIDATORS = {
