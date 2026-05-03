@@ -12,6 +12,7 @@ from django.contrib.auth.models import User
 from django.db import IntegrityError
 from django.db.models import Avg, Max, Min, QuerySet, Sum
 
+from crypto.exceptions import SymbolNotFoundOnExchangeError, WatchlistDuplicateError
 from crypto.models import CoinPrice, Snapshot, WatchlistItem
 from src.api_client import ApiClient
 
@@ -78,18 +79,6 @@ def get_volume_leaders() -> dict[str, QuerySet[CoinPrice, CoinPrice]] | None:
     }
 
 
-class SymbolNotFoundError(Exception):
-    """Символ не найден на бирже."""
-
-    pass
-
-
-class ExistInWatchlistError(Exception):
-    """Монета уже есть в watchlist пользователя."""
-
-    pass
-
-
 def get_user_watchlist(user: User) -> QuerySet[WatchlistItem, WatchlistItem]:
     """Возвращает все монеты из watchlist пользователя."""
     return WatchlistItem.objects.filter(user=user)
@@ -113,7 +102,7 @@ def _validate_coingecko(symbol: str) -> tuple[str, str]:
         if coin["symbol"] == symbol.upper():
             return coin["symbol"], coin["name"]
 
-    raise SymbolNotFoundError
+    raise SymbolNotFoundOnExchangeError
 
 
 def _validate_cmc(symbol: str) -> tuple[str, str]:
@@ -131,7 +120,7 @@ def _validate_cmc(symbol: str) -> tuple[str, str]:
         if coin["symbol"] == symbol.upper():
             return coin["symbol"], coin["name"]
 
-    raise SymbolNotFoundError
+    raise SymbolNotFoundOnExchangeError
 
 
 VALIDATORS = {
@@ -165,6 +154,6 @@ def add_to_watchlist(user: User, symbol: str) -> WatchlistItem:
             coin_name=coin_info[1],
         )
     except IntegrityError:
-        raise ExistInWatchlistError
+        raise WatchlistDuplicateError
 
     return item
