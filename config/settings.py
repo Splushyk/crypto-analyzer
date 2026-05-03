@@ -176,6 +176,13 @@ SIMPLE_JWT = {
 # Провайдер для валидации символов криптовалют
 CRYPTO_PROVIDER = env("CRYPTO_PROVIDER", default="coingecko")
 
+# Внешние API
+COINGECKO_BASE_URL = env(
+    "COINGECKO_BASE_URL", default="https://api.coingecko.com/api/v3"
+)
+CMC_BASE_URL = env("CMC_BASE_URL", default="https://pro-api.coinmarketcap.com/v1")
+CMC_API_KEY = env("CMC_API_KEY", default="")
+
 # Celery settings
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://localhost:6379/0")

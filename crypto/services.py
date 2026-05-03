@@ -5,8 +5,6 @@
 Не зависит от DRF — работает только с Django ORM и стандартной библиотекой.
 """
 
-import os
-
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import IntegrityError
@@ -95,7 +93,7 @@ def remove_from_watchlist(user: User, symbol: str) -> bool:
 
 def _validate_coingecko(symbol: str) -> tuple[str, str]:
     """Проверяет существование символа через CoinGecko API."""
-    client = ApiClient(base_url="https://api.coingecko.com/api/v3")
+    client = ApiClient(base_url=settings.COINGECKO_BASE_URL)
     data = client.get_json(endpoint="/search", params={"query": symbol})
 
     symbol_upper = symbol.upper()
@@ -109,8 +107,8 @@ def _validate_coingecko(symbol: str) -> tuple[str, str]:
 def _validate_cmc(symbol: str) -> tuple[str, str]:
     """Проверяет существование символа через CoinMarketCap API."""
     client = ApiClient(
-        base_url="https://pro-api.coinmarketcap.com/v1",
-        headers={"X-CMC_PRO_API_KEY": os.getenv("CMC_API_KEY")},
+        base_url=settings.CMC_BASE_URL,
+        headers={"X-CMC_PRO_API_KEY": settings.CMC_API_KEY},
     )
     data = client.get_json(
         endpoint="/cryptocurrency/map",
