@@ -30,11 +30,14 @@ FROM python:3.14-slim AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PATH="/app/.venv/bin:$PATH"
+    PATH="/app/.venv/bin:$PATH" \
+    HOME=/app
 
 # Системный пользователь без shell и home — запускаем приложение от него
 RUN groupadd --system --gid 1000 app \
- && useradd --system --uid 1000 --gid app --no-create-home --shell /usr/sbin/nologin app
+ && useradd --system --uid 1000 --gid app --no-create-home --shell /usr/sbin/nologin app \
+ && mkdir -p /app \
+ && chown app:app /app
 
 WORKDIR /app
 
