@@ -14,6 +14,7 @@ import sys
 from datetime import timedelta
 from pathlib import Path
 import environ
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -151,3 +152,20 @@ SIMPLE_JWT = {
 
 # Провайдер для валидации символов криптовалют
 CRYPTO_PROVIDER = env('CRYPTO_PROVIDER', default='coingecko')
+
+# Celery settings
+CELERY_BROKER_URL = env('CELERY_BROKER_URL', default='redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = env('CELERY_RESULT_BACKEND', default='redis://localhost:6379/0')
+CELERY_TASK_TRACK_STARTED = True
+
+CELERY_BEAT_SCHEDULE = {
+    'fetch-snapshot-hourly': {
+        'task': 'crypto.tasks.fetch_snapshot_task',
+        'schedule': crontab(minute=0),
+    },
+}
+
+if TESTING:
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
+    CELERY_BROKER_URL = 'memory://'

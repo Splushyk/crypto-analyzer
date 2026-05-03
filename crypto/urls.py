@@ -2,7 +2,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from crypto.views import SnapshotViewSet, CoinPriceHistoryView, WatchlistView, WatchlistDetailView, MarketStatsView, \
-    TopMoversView, VolumeLeadersView
+    TopMoversView, VolumeLeadersView, FetchSnapshotView, TaskStatusView
 
 router = DefaultRouter()
 router.register(r'snapshots', SnapshotViewSet)
@@ -14,4 +14,6 @@ urlpatterns = router.urls + [
     path('analytics/market-stats/', MarketStatsView.as_view()),
     path('analytics/top-movers/', TopMoversView.as_view()),
     path('analytics/volume-leaders/', VolumeLeadersView.as_view()),
+    path('tasks/fetch-snapshot/', FetchSnapshotView.as_view()),
+    path('tasks/<str:task_id>/status/', TaskStatusView.as_view()),
 ]

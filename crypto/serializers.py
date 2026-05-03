@@ -48,3 +48,10 @@ class CoinPriceFilterSerializer(serializers.Serializer):
     symbol = serializers.CharField(required=False)
     min_price = serializers.DecimalField(max_digits=20, decimal_places=6, required=False)
     max_price = serializers.DecimalField(max_digits=20, decimal_places=6, required=False)
+
+
+class FetchSnapshotSerializer(serializers.Serializer):
+    source = serializers.ChoiceField(
+        choices=["coingecko", "cmc"],
+        default="coingecko",
+    )
