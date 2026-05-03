@@ -4,8 +4,8 @@
 """
 
 import pytest
-from src.visualizers import ConsoleVisualizer
 
+from src.visualizers import ConsoleVisualizer
 
 
 def test_console_visualizer_display_calls_print(sample_results, mocker):
@@ -33,7 +33,7 @@ def test_visualizers_edge_cases_empty_data(sample_coin, mocker):
         "top_up": [],  # Пустой список
         "top_down": [],
         "max_volume": sample_coin,
-        "total_market_cap": 0
+        "total_market_cap": 0,
     }
     mock_print = mocker.patch("rich.console.Console.print")
     instance = ConsoleVisualizer()
@@ -51,8 +51,8 @@ def test_display_snapshots_calls_print(mocker):
     """Проверка вывода списка снимков из БД."""
     # 1. Готовим фейковые данные (как они приходят из БД)
     fake_snapshots = [
-        {'id': 1, 'created_at': '2026-03-24 12:00', 'total_market_cap': 1000000.0},
-        {'id': 2, 'created_at': '2026-03-24 13:00', 'total_market_cap': 1200000.0}
+        {"id": 1, "created_at": "2026-03-24 12:00", "total_market_cap": 1000000.0},
+        {"id": 2, "created_at": "2026-03-24 13:00", "total_market_cap": 1200000.0},
     ]
     mock_print = mocker.patch("rich.console.Console.print")
     viz = ConsoleVisualizer()
@@ -69,10 +69,10 @@ def test_display_comparison_calls_print(mocker):
     # 1. Данные для сравнения
     fake_comparison = [
         {
-            'symbol': 'SC',
-            'old_price': 60000.0,
-            'new_price': 61000.0,
-            'percent_change': 1.66
+            "symbol": "SC",
+            "old_price": 60000.0,
+            "new_price": 61000.0,
+            "percent_change": 1.66,
         }
     ]
     mock_print = mocker.patch("rich.console.Console.print")

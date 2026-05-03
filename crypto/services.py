@@ -1,51 +1,53 @@
 """
 Сервисный слой для работы с watchlist.
-Содержит бизнес-логику: валидация символа через API биржи, управление списком отслеживаемых монет пользователя.
+Содержит бизнес-логику: валидация символа через API биржи,
+управление списком отслеживаемых монет пользователя.
 Не зависит от DRF — работает только с Django ORM и стандартной библиотекой.
 """
 
 import os
 
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.db import IntegrityError
-from django.db.models import Min, Max, Avg, Sum
+from django.db.models import Avg, Max, Min, QuerySet, Sum
 
 from crypto.models import CoinPrice, Snapshot, WatchlistItem
 from src.api_client import ApiClient
 
 
-def _get_latest_snapshot_prices():
+def _get_latest_snapshot_prices() -> QuerySet[CoinPrice]:
     """
     Queryset цен последнего снимка рынка. Если снимков ещё нет — возвращает
     гарантированно пустой queryset (CoinPrice.objects.none()), чтобы вызывающий
     код не различал «снимков нет» и «снимок есть, но пустой».
     """
-    latest_snapshot = Snapshot.objects.order_by('-created_at').first()
+    latest_snapshot = Snapshot.objects.order_by("-created_at").first()
     if latest_snapshot is None:
         return CoinPrice.objects.none()
     return CoinPrice.objects.filter(snapshot=latest_snapshot)
 
 
-def get_market_stats():
+def get_market_stats() -> dict[str, float] | None:
     """
     Агрегированная статистика цен по последнему снимку рынка.
     Возвращает словарь с min/max/avg цены и суммой капитализации,
     либо None, если нет ни одного снимка или снимок пустой.
     """
     stats = _get_latest_snapshot_prices().aggregate(
-        min_price=Min('price'),
-        max_price=Max('price'),
-        avg_price=Avg('price'),
-        total_market_cap=Sum('market_cap'),
+        min_price=Min("price"),
+        max_price=Max("price"),
+        avg_price=Avg("price"),
+        total_market_cap=Sum("market_cap"),
     )
 
-    if stats['min_price'] is None:
+    if stats["min_price"] is None:
         return None
 
     return stats
 
 
-def get_top_movers():
+def get_top_movers() -> dict[str, QuerySet[CoinPrice, CoinPrice]] | None:
     """
     Топ-5 растущих и топ-5 падающих монет по change_24h за последний снимок.
     Возвращает словарь с двумя querysets, либо None, если нет ни одного снимка
@@ -56,12 +58,12 @@ def get_top_movers():
         return None
 
     return {
-        "top_gainers": prices.order_by('-change_24h')[:5],
-        "top_losers": prices.order_by('change_24h')[:5],
+        "top_gainers": prices.order_by("-change_24h")[:5],
+        "top_losers": prices.order_by("change_24h")[:5],
     }
 
 
-def get_volume_leaders():
+def get_volume_leaders() -> dict[str, QuerySet[CoinPrice, CoinPrice]] | None:
     """
     Топ-10 монет по объёму торгов за последний снимок.
     Возвращает словарь с queryset, либо None, если нет ни одного снимка
@@ -72,32 +74,37 @@ def get_volume_leaders():
         return None
 
     return {
-        "leaders": prices.order_by('-volume')[:10],
+        "leaders": prices.order_by("-volume")[:10],
     }
 
 
 class SymbolNotFoundError(Exception):
     """Символ не найден на бирже."""
+
     pass
 
 
 class ExistInWatchlistError(Exception):
     """Монета уже есть в watchlist пользователя."""
+
     pass
 
 
-def get_user_watchlist(user):
+def get_user_watchlist(user: User) -> QuerySet[WatchlistItem, WatchlistItem]:
     """Возвращает все монеты из watchlist пользователя."""
     return WatchlistItem.objects.filter(user=user)
 
 
-def remove_from_watchlist(user, symbol):
-    """Удаляет монету из watchlist. Возвращает True если удалена, False если не найдена."""
+def remove_from_watchlist(user: User, symbol: str) -> bool:
+    """
+    Удаляет монету из watchlist.
+    Возвращает True если удалена, False если не найдена.
+    """
     deleted_item = WatchlistItem.objects.filter(user=user, symbol=symbol).delete()
     return True if deleted_item[0] == 1 else False
 
 
-def _validate_coingecko(symbol):
+def _validate_coingecko(symbol: str) -> tuple[str, str]:
     """Проверяет существование символа через CoinGecko API."""
     client = ApiClient(base_url="https://api.coingecko.com/api/v3")
     data = client.get_json(endpoint="/search", params={"query": symbol})
@@ -109,7 +116,7 @@ def _validate_coingecko(symbol):
     raise SymbolNotFoundError
 
 
-def _validate_cmc(symbol):
+def _validate_cmc(symbol: str) -> tuple[str, str]:
     """Проверяет существование символа через CoinMarketCap API."""
     client = ApiClient(
         base_url="https://pro-api.coinmarketcap.com/v1",
@@ -133,8 +140,11 @@ VALIDATORS = {
 }
 
 
-def validate_symbol(symbol):
-    """Проверяет существование символа через API выбранной биржи. Возвращает (symbol, name)."""
+def validate_symbol(symbol: str) -> tuple[str, str]:
+    """
+    Проверяет существование символа через API выбранной биржи.
+    Возвращает (symbol, name).
+    """
     provider = settings.CRYPTO_PROVIDER
     validator = VALIDATORS.get(provider)
 
@@ -144,7 +154,7 @@ def validate_symbol(symbol):
     return validator(symbol)
 
 
-def add_to_watchlist(user, symbol):
+def add_to_watchlist(user: User, symbol: str) -> WatchlistItem:
     """Валидирует символ и добавляет монету в watchlist пользователя."""
     coin_info = validate_symbol(symbol)
 

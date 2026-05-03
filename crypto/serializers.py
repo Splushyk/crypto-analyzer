@@ -6,8 +6,7 @@ from crypto.models import CoinPrice, Snapshot, WatchlistItem
 class CoinPriceSerializer(serializers.ModelSerializer):
     class Meta:
         model = CoinPrice
-        fields = ['id', 'name', 'symbol', 'price', 'change_24h',
-                  'volume', 'market_cap']
+        fields = ["id", "name", "symbol", "price", "change_24h", "volume", "market_cap"]
 
 
 class SnapshotSerializer(serializers.ModelSerializer):
@@ -15,13 +14,13 @@ class SnapshotSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Snapshot
-        fields = ['id', 'created_at', 'total_market_cap', 'prices']
+        fields = ["id", "created_at", "total_market_cap", "prices"]
 
 
 class WatchlistSerializer(serializers.ModelSerializer):
     class Meta:
         model = WatchlistItem
-        fields = ['id', 'symbol', 'coin_name', 'added_at']
+        fields = ["id", "symbol", "coin_name", "added_at"]
 
 
 class AddToWatchlistSerializer(serializers.Serializer):
@@ -46,12 +45,16 @@ class VolumeLeadersSerializer(serializers.Serializer):
 
 class CoinPriceFilterSerializer(serializers.Serializer):
     symbol = serializers.CharField(required=False)
-    min_price = serializers.DecimalField(max_digits=20, decimal_places=6, required=False)
-    max_price = serializers.DecimalField(max_digits=20, decimal_places=6, required=False)
+    min_price = serializers.DecimalField(
+        max_digits=20, decimal_places=6, required=False
+    )
+    max_price = serializers.DecimalField(
+        max_digits=20, decimal_places=6, required=False
+    )
 
 
 class FetchSnapshotSerializer(serializers.Serializer):
-    source = serializers.ChoiceField(
+    source = serializers.ChoiceField(  # type: ignore[assignment]
         choices=["coingecko", "cmc"],
         default="coingecko",
     )

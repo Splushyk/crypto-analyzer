@@ -1,5 +1,4 @@
 import pytest
-
 from django.contrib.auth.models import User
 
 from src.models import Cryptocurrency
@@ -27,7 +26,7 @@ def sample_coin():
         price=10.12345,
         change_24h=8.12345,
         volume=555.12345,
-        market_cap=777.12345
+        market_cap=777.12345,
     )
 
 
@@ -38,7 +37,7 @@ def sample_results(sample_coin):
         "top_up": [sample_coin],
         "top_down": [sample_coin],
         "max_volume": sample_coin,
-        "total_market_cap": 777.12345
+        "total_market_cap": 777.12345,
     }
 
 
@@ -81,7 +80,7 @@ def mock_api_symbol_found(mocker):
 @pytest.fixture
 def mock_api_symbol_not_found(mocker):
     """Мокает ApiClient так, чтобы API вернул пустой список."""
-    fake_response = {"coins": []}
+    fake_response: dict[str, list] = {"coins": []}
     mock_client = mocker.patch("crypto.services.ApiClient")
     mock_client.return_value.get_json.return_value = fake_response
     return mock_client

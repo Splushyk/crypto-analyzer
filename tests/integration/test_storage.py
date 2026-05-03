@@ -4,18 +4,18 @@
 Ключевые сценарии:
 1. Проверка жизненного цикла данных в SQLite: сохранение (INSERT) и извлечение (SELECT).
 2. Тестирование сложной SQL-логики: корректность JOIN-запросов при сравнении снимков.
-3. Валидация агрегатных функций и сортировки: проверка работы LIMIT и ORDER BY в методах аналитики.
-4. Проверка реального взаимодействия с файловой системой для JsonStorage через временные директории (tmp_path).
+3. Валидация агрегатных функций и сортировки: проверка работы LIMIT и ORDER BY
+   в методах аналитики.
+4. Проверка реального взаимодействия с файловой системой для JsonStorage
+   через временные директории (tmp_path).
 
 Тесты используют реальный движок SQLite (в памяти) и проверяют интеграцию кода с СУБД.
 """
 
 import json
-import pytest
 
 from src.models import Cryptocurrency
 from src.storage import JsonStorage
-
 
 
 def test_sqlite_save_and_get_all_snapshots(sqlite_storage, sample_coin, sample_results):
@@ -38,10 +38,22 @@ def test_sqlite_save_and_get_all_snapshots(sqlite_storage, sample_coin, sample_r
 def test_sqlite_comparison_logic(sqlite_storage, sample_results):
     """Проверка сложного SQL-запроса сравнения цен (JOIN) между двумя снимками."""
     # Создаем две версии одной монеты (цена выросла со 100 до 150)
-    c1 = Cryptocurrency(name="SomeCoin", symbol="SC", price=100.0,
-                        change_24h=0, volume=1000, market_cap=10000)
-    c2 = Cryptocurrency(name="SomeCoin", symbol="SC", price=150.0,
-                        change_24h=0, volume=1000, market_cap=15000)
+    c1 = Cryptocurrency(
+        name="SomeCoin",
+        symbol="SC",
+        price=100.0,
+        change_24h=0,
+        volume=1000,
+        market_cap=10000,
+    )
+    c2 = Cryptocurrency(
+        name="SomeCoin",
+        symbol="SC",
+        price=150.0,
+        change_24h=0,
+        volume=1000,
+        market_cap=15000,
+    )
 
     # Сохраняем два снимка
     sqlite_storage.save([c1], sample_results)  # ID 1
@@ -60,18 +72,42 @@ def test_sqlite_comparison_logic(sqlite_storage, sample_results):
 
 
 def test_sqlite_top_movers_returns_correct_coins(sqlite_storage, sample_results):
-    """Проверка, что get_top_movers возвращает монеты с наибольшим и наименьшим изменением."""
+    """
+    Проверка, что get_top_movers возвращает монеты
+    с наибольшим и наименьшим изменением.
+    """
     coins = [
-        Cryptocurrency(name="CoinA", symbol="CA", price=1.0, change_24h=10.0, volume=100, market_cap=1000),
-        Cryptocurrency(name="CoinB",  symbol="CB", price=1.0, change_24h=5.0,  volume=100, market_cap=1000),
-        Cryptocurrency(name="CoinC", symbol="CC", price=1.0, change_24h=-8.0, volume=100, market_cap=1000),
+        Cryptocurrency(
+            name="CoinA",
+            symbol="CA",
+            price=1.0,
+            change_24h=10.0,
+            volume=100,
+            market_cap=1000,
+        ),
+        Cryptocurrency(
+            name="CoinB",
+            symbol="CB",
+            price=1.0,
+            change_24h=5.0,
+            volume=100,
+            market_cap=1000,
+        ),
+        Cryptocurrency(
+            name="CoinC",
+            symbol="CC",
+            price=1.0,
+            change_24h=-8.0,
+            volume=100,
+            market_cap=1000,
+        ),
     ]
     sqlite_storage.save(coins, sample_results)
 
     movers = sqlite_storage.get_top_movers()
 
     assert movers["gainers"][0]["symbol"] == "CA"  # наибольший рост
-    assert movers["losers"][0]["symbol"] == "CC"   # наибольшее падение
+    assert movers["losers"][0]["symbol"] == "CC"  # наибольшее падение
 
 
 def test_sqlite_coin_history(sqlite_storage, sample_coin, sample_results):
@@ -98,7 +134,7 @@ def test_json_storage_save_integration(sample_coin, sample_results, tmp_path):
     assert test_file.exists()
 
     # Читаем файл и проверяем структуру
-    with open(test_file, "r", encoding="utf-8") as f:
+    with open(test_file, encoding="utf-8") as f:
         data = json.load(f)
 
     assert "generated_at" in data

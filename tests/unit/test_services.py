@@ -8,16 +8,16 @@ import pytest
 
 from crypto.models import WatchlistItem
 from crypto.services import (
-    validate_symbol,
+    ExistInWatchlistError,
+    SymbolNotFoundError,
     add_to_watchlist,
     get_user_watchlist,
     remove_from_watchlist,
-    SymbolNotFoundError,
-    ExistInWatchlistError,
+    validate_symbol,
 )
 
-
 # Тесты validate_symbol
+
 
 def test_validate_symbol_found(mock_api_symbol_found):
     """Если символ существует — возвращает (symbol, name)."""
@@ -41,6 +41,7 @@ def test_validate_symbol_case_insensitive(mock_api_symbol_found):
 
 
 # Тесты add_to_watchlist
+
 
 def test_add_to_watchlist_success(user_a, mock_api_symbol_found):
     """Успешное добавление монеты: запись создана с правильными данными."""
@@ -71,6 +72,7 @@ def test_add_to_watchlist_duplicate(user_a, mock_api_symbol_found):
 
 # Тесты get_user_watchlist
 
+
 def test_get_user_watchlist_returns_own_items(user_a, user_b, mock_api_symbol_found):
     """Пользователь видит только свои монеты, не чужие."""
     add_to_watchlist(user_a, "btc")
@@ -88,6 +90,7 @@ def test_get_user_watchlist_empty(user_a):
 
 
 # Тесты remove_from_watchlist
+
 
 def test_remove_from_watchlist_success(user_a, mock_api_symbol_found):
     """Удаление существующей монеты — возвращает True, запись исчезает из базы."""

@@ -4,7 +4,8 @@
 Модуль отвечает за:
 1. Конфигурацию CLI-интерфейса (на базе Typer).
 2. Инициализацию компонентов через фабричные методы (Providers, Visualizers, Storages).
-3. Управление основным циклом программы: получение данных -> анализ -> вывод -> сохранение.
+3. Управление основным циклом программы:
+   получение данных -> анализ -> вывод -> сохранение.
 4. Централизованную обработку исключений и логирование ошибок.
 """
 
@@ -16,19 +17,19 @@ import typer
 from dotenv import load_dotenv
 from rich.console import Console
 
-from src.api_client import ApiClient
 from src.analyzer import CryptoAnalyzer
-from src.parsers import GeckoParser, CMCParser
-from src.providers import CryptoProvider, GeckoProvider, CMCProvider
+from src.api_client import ApiClient
+from src.parsers import CMCParser, GeckoParser
+from src.providers import CMCProvider, CryptoProvider, GeckoProvider
+from src.settings import StorageType, settings
 from src.storage import AnalyticsStorage, BaseStorage, JsonStorage, SqliteStorage
-from src.settings import settings, StorageType
 from src.visualizers import BaseVisualizer, ConsoleVisualizer
 
 load_dotenv()
 
 app = typer.Typer()
 
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 console = Console()
@@ -36,14 +37,14 @@ console = Console()
 PROVIDERS: dict[str, Callable[[], CryptoProvider]] = {
     "coingecko": lambda: GeckoProvider(
         client=ApiClient(base_url="https://api.coingecko.com/api/v3/coins/markets"),
-        parser=GeckoParser()
+        parser=GeckoParser(),
     ),
     "coinmarketcap": lambda: CMCProvider(
         client=ApiClient(
             base_url="https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest",
-            headers={"X-CMC_PRO_API_KEY": os.getenv("CMC_API_KEY")}
+            headers={"X-CMC_PRO_API_KEY": os.getenv("CMC_API_KEY")},
         ),
-        parser=CMCParser()
+        parser=CMCParser(),
     ),
 }
 
@@ -94,12 +95,17 @@ def build_storage() -> BaseStorage:
 
 @app.command()
 def run(
-        source: str = typer.Option("coingecko", help="Источник данных: coingecko или coinmarketcap"),
-        output: str = typer.Option("console", help="Формат вывода: console"),
-        top: int = typer.Option(3, min=1, max=50, help="Количество лидеров роста и падения (от 1 до 50)")
+    source: str = typer.Option(
+        "coingecko", help="Источник данных: coingecko или coinmarketcap"
+    ),
+    output: str = typer.Option("console", help="Формат вывода: console"),
+    top: int = typer.Option(
+        3, min=1, max=50, help="Количество лидеров роста и падения (от 1 до 50)"
+    ),
 ):
     """
-    Точка входа CLI. Загружает данные, анализирует, отображает результаты и сохраняет их.
+    Точка входа CLI.
+    Загружает данные, анализирует, отображает результаты и сохраняет их.
     """
     provider = build_provider(source)
     visualizer = build_visualizer(output)

@@ -29,12 +29,20 @@ def retry(max_attempts, delay):
                 try:
                     result = func(*args, **kwargs)
                     return result
-                except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+                except (
+                    requests.exceptions.Timeout,
+                    requests.exceptions.ConnectionError,
+                ) as e:
                     if attempt == max_attempts - 1:
-                        logger.error(f"Достигнуто максимальное количество попыток. Ошибка: {e}")
+                        logger.error(
+                            f"Достигнуто максимальное количество попыток. Ошибка: {e}"
+                        )
                         raise
 
-                    logger.warning(f"Ошибка сети (попытка {attempt + 1}/{max_attempts}). Ждем {delay} сек...")
+                    logger.warning(
+                        f"Ошибка сети (попытка {attempt + 1}/{max_attempts}). "
+                        f"Ждем {delay} сек..."
+                    )
                     time.sleep(delay)
 
         return wrapper
@@ -58,7 +66,7 @@ class ApiClient:
                 f"{self.base_url}{endpoint}",
                 headers=self.headers,
                 params=params,
-                timeout=10
+                timeout=10,
             )
         response.raise_for_status()
         return response.json()

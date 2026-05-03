@@ -13,14 +13,17 @@
 import pytest
 
 from src.models import Cryptocurrency
-from src.parsers import GeckoParser, CMCParser
+from src.parsers import CMCParser, GeckoParser
 
 
-
-@pytest.mark.parametrize("parser_class, data_fixture", [
-    (GeckoParser, "gecko_raw_data"),
-    (CMCParser, "cmc_raw_data"),
-], ids=["Gecko", "CMC"])
+@pytest.mark.parametrize(
+    "parser_class, data_fixture",
+    [
+        (GeckoParser, "gecko_raw_data"),
+        (CMCParser, "cmc_raw_data"),
+    ],
+    ids=["Gecko", "CMC"],
+)
 def test_parsers_work_correctly(parser_class, data_fixture, request, sample_coin):
     raw_data = request.getfixturevalue(data_fixture)
     result = parser_class().parse(raw_data)

@@ -2,26 +2,37 @@
 Модуль тестирования провайдеров данных (GeckoProvider, CMCProvider).
 
 Основные задачи тестов:
-1. Проверка координации: убеждаемся, что данные из API-клиента передаются в парсер без искажений.
-2. Использование моков (Mocker): полная изоляция провайдера от сетевой логики и реализации парсеров.
-3. Тестирование логики упаковки данных: проверка специфического поведения CMCProvider (извлечение данных из ключа 'data').
-4. Обработка краевых случаев: поведение системы при отсутствии ожидаемых ключей в ответе API.
+1. Проверка координации: убеждаемся, что данные из API-клиента передаются в парсер
+   без искажений.
+2. Использование моков (Mocker): полная изоляция провайдера от сетевой логики и
+   реализации парсеров.
+3. Тестирование логики упаковки данных: проверка специфического поведения CMCProvider
+   (извлечение данных из ключа 'data').
+4. Обработка краевых случаев: поведение системы при отсутствии ожидаемых ключей
+   в ответе API.
 
-Применяется универсальный параметризованный тест для проверки идентичного поведения разных провайдеров.
+Применяется универсальный параметризованный тест для проверки идентичного поведения
+разных провайдеров.
 """
 
 import pytest
-from src.providers import GeckoProvider, CMCProvider
+
+from src.providers import CMCProvider, GeckoProvider
 
 
-
-@pytest.mark.parametrize("provider_class, data_fixture, transform_func", [
-    # Для Gecko данные идут как есть (просто возвращаем их)
-    (GeckoProvider, "gecko_raw_data", lambda d: d),
-    # Для CMC данные приходят в словаре под ключом "data"
-    (CMCProvider, "cmc_raw_data", lambda d: {"data": d}),
-], ids=["CoinGecko", "CoinMarketCap"])
-def test_providers_data_flow(provider_class, data_fixture, transform_func, request, mocker):
+@pytest.mark.parametrize(
+    "provider_class, data_fixture, transform_func",
+    [
+        # Для Gecko данные идут как есть (просто возвращаем их)
+        (GeckoProvider, "gecko_raw_data", lambda d: d),
+        # Для CMC данные приходят в словаре под ключом "data"
+        (CMCProvider, "cmc_raw_data", lambda d: {"data": d}),
+    ],
+    ids=["CoinGecko", "CoinMarketCap"],
+)
+def test_providers_data_flow(
+    provider_class, data_fixture, transform_func, request, mocker
+):
     """
     Универсальный тест потока данных:
     Проверяет, что провайдер правильно запрашивает данные и передает их в парсер.

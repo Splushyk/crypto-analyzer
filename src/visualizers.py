@@ -46,8 +46,13 @@ class ConsoleVisualizer(BaseVisualizer):
         # 3. Общая информация
         max_vol = results["max_volume"]
         total_cap = results["total_market_cap"]
-        self.console.print(f"\n[bold white]Макс. объём:[/bold white] {max_vol.name} — ${max_vol.volume:,.0f}")
-        self.console.print(f"[bold white]Капитализация топ-50:[/bold white] ${total_cap:,.0f}")
+        self.console.print(
+            f"\n[bold white]Макс. объём:[/bold white] "
+            f"{max_vol.name} — ${max_vol.volume:,.0f}"
+        )
+        self.console.print(
+            f"[bold white]Капитализация топ-50:[/bold white] ${total_cap:,.0f}"
+        )
 
     def display_snapshots(self, snapshots: list[dict]):
         """Вывод списка всех снимков."""
@@ -57,7 +62,9 @@ class ConsoleVisualizer(BaseVisualizer):
         table.add_column("Капитализация", justify="right", style="green")
 
         for s in snapshots:
-            table.add_row(str(s['id']), s['created_at'], f"${s['total_market_cap']:,.0f}")
+            table.add_row(
+                str(s["id"]), s["created_at"], f"${s['total_market_cap']:,.0f}"
+            )
 
         self.console.print(table)
 
@@ -70,13 +77,11 @@ class ConsoleVisualizer(BaseVisualizer):
         table.add_column("Изменение", justify="right")
 
         for row in comparison:
-            color = "green" if row['percent_change'] > 0 else "red"
+            color = "green" if row["percent_change"] > 0 else "red"
             table.add_row(
-                row['symbol'],
+                row["symbol"],
                 f"${row['old_price']:.6f}",
                 f"${row['new_price']:.6f}",
-                f"[{color}]{row['percent_change']:+.2f}%[/{color}]"
+                f"[{color}]{row['percent_change']:+.2f}%[/{color}]",
             )
         self.console.print(table)
-
-

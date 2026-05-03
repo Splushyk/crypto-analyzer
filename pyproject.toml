@@ -37,8 +37,12 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "django-stubs[compatible-mypy]>=6.0.3",
+    "djangorestframework-stubs[compatible-mypy]>=3.16.9",
     "mypy>=1.19.1",
-    "mypy-extensions==1.1.0",
+    "pre-commit>=4.6.0",
+    "ruff>=0.15.11",
+    "types-requests>=2.33.0.20260408",
     { include-group = "test" },
 ]
 
@@ -73,3 +77,33 @@ exclude_lines = [
     # Игнорировать стандартную проверку запуска модуля
     "if __name__ == .__main__.:",
 ]
+
+[tool.mypy]
+plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+
+[tool.django-stubs]
+django_settings_module = "config.settings"
+
+[[tool.mypy.overrides]]
+module = ["environ", "environ.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["celery", "celery.*"]
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 88
+target-version = "py314"
+extend-exclude = ["*/migrations/*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = 72

@@ -1,14 +1,21 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Snapshot, CoinPrice, WatchlistItem
+from .models import CoinPrice, Snapshot, WatchlistItem
 
 
 class CoinPriceInline(admin.TabularInline):
     model = CoinPrice
     verbose_name_plural = "Список цен на момент снимка"
     extra = 0  # Чтобы Django не создавал пустые строки для новых записей по умолчанию
-    fields = ('symbol', 'name', 'formatted_price', 'formatted_change', 'formatted_market_cap', 'formatted_volume')
+    fields = (
+        "symbol",
+        "name",
+        "formatted_price",
+        "formatted_change",
+        "formatted_market_cap",
+        "formatted_volume",
+    )
     # Запрещаем редактирование всех важных данных
     readonly_fields = fields
 
@@ -45,15 +52,14 @@ class CoinPriceInline(admin.TabularInline):
         change_text = f"{obj.change_24h:+.2f}%"
         # Потом передаем готовую строку в HTML
         return format_html(
-            '<span style="color: {}; font-weight: bold;">{}</span>',
-            color, change_text
+            '<span style="color: {}; font-weight: bold;">{}</span>', color, change_text
         )
 
 
 @admin.register(Snapshot)
 class SnapshotAdmin(admin.ModelAdmin):
-    list_display = ('id', 'created_at', 'formatted_total_cap')
-    ordering = ('-created_at',)
+    list_display = ("id", "created_at", "formatted_total_cap")
+    ordering = ("-created_at",)
     inlines = [CoinPriceInline]
 
     @admin.display(description="Общая капитализация")
@@ -64,12 +70,20 @@ class SnapshotAdmin(admin.ModelAdmin):
 @admin.register(CoinPrice)
 class CoinPriceAdmin(admin.ModelAdmin):
     # Используем те же красивые методы, что и в инлайне
-    list_display = ('symbol', 'name', 'formatted_price', 'formatted_change', 'snapshot')
-    list_filter = ('symbol', 'snapshot')
-    search_fields = ('symbol', 'name')
+    list_display = ("symbol", "name", "formatted_price", "formatted_change", "snapshot")
+    list_filter = ("symbol", "snapshot")
+    search_fields = ("symbol", "name")
 
     # Делаем поля нередактируемыми
-    readonly_fields = ('snapshot', 'name', 'symbol', 'price', 'change_24h', 'volume', 'market_cap')
+    readonly_fields = (
+        "snapshot",
+        "name",
+        "symbol",
+        "price",
+        "change_24h",
+        "volume",
+        "market_cap",
+    )
 
     @admin.display(description="Цена")
     def formatted_price(self, obj):
@@ -85,10 +99,10 @@ class CoinPriceAdmin(admin.ModelAdmin):
 
 @admin.register(WatchlistItem)
 class WatchlistItemAdmin(admin.ModelAdmin):
-    list_display = ('user', 'symbol', 'coin_name', 'added_at')
-    list_filter = ('user', 'symbol', 'added_at')
-    search_fields = ('user__username', 'symbol')
-    readonly_fields = ('added_at',)
+    list_display = ("user", "symbol", "coin_name", "added_at")
+    list_filter = ("user", "symbol", "added_at")
+    search_fields = ("user__username", "symbol")
+    readonly_fields = ("added_at",)
 
 
 admin.site.site_header = "Панель управления Crypto Analyzer"  # Текст в синей шапке
