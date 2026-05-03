@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import CoinPrice, Snapshot, WatchlistItem
+from crypto.models import CoinPrice, Snapshot, WatchlistItem
 
 
 class CoinPriceInline(admin.TabularInline):

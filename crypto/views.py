@@ -9,8 +9,6 @@ from rest_framework.views import APIView
 
 from crypto.exceptions import (
     NoDataForAnalysisError,
-    SymbolNotFoundOnExchangeError,
-    WatchlistDuplicateError,
     WatchlistItemNotFoundError,
 )
 from crypto.filters import CoinPriceFilter
@@ -40,8 +38,6 @@ from crypto.serializers import (
     WatchlistSerializer,
 )
 from crypto.services import (
-    ExistInWatchlistError,
-    SymbolNotFoundError,
     add_to_watchlist,
     get_market_stats,
     get_top_movers,
@@ -86,14 +82,7 @@ class WatchlistView(APIView):
         serializer = AddToWatchlistSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         symbol = serializer.validated_data["symbol"]
-
-        try:
-            item = add_to_watchlist(request.user, symbol)
-        except SymbolNotFoundError as exc:
-            raise SymbolNotFoundOnExchangeError() from exc
-        except ExistInWatchlistError as exc:
-            raise WatchlistDuplicateError() from exc
-
+        item = add_to_watchlist(request.user, symbol)
         return Response(WatchlistSerializer(item).data, status=status.HTTP_201_CREATED)
 
 

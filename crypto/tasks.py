@@ -56,6 +56,8 @@ def _save_snapshot(coins, total_cap):
     retry_backoff_max=600,
     retry_jitter=True,
     max_retries=5,
+    soft_time_limit=60,
+    time_limit=120,
 )
 def fetch_snapshot_task(source="coingecko"):
     """Celery-задача: получает данные от API и сохраняет снимок в БД."""

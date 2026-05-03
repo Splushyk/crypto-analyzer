@@ -5,13 +5,12 @@
 Не зависит от DRF — работает только с Django ORM и стандартной библиотекой.
 """
 
-import os
-
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import IntegrityError
 from django.db.models import Avg, Max, Min, QuerySet, Sum
 
+from crypto.exceptions import SymbolNotFoundOnExchangeError, WatchlistDuplicateError
 from crypto.models import CoinPrice, Snapshot, WatchlistItem
 from src.api_client import ApiClient
 
@@ -78,18 +77,6 @@ def get_volume_leaders() -> dict[str, QuerySet[CoinPrice, CoinPrice]] | None:
     }
 
 
-class SymbolNotFoundError(Exception):
-    """Символ не найден на бирже."""
-
-    pass
-
-
-class ExistInWatchlistError(Exception):
-    """Монета уже есть в watchlist пользователя."""
-
-    pass
-
-
 def get_user_watchlist(user: User) -> QuerySet[WatchlistItem, WatchlistItem]:
     """Возвращает все монеты из watchlist пользователя."""
     return WatchlistItem.objects.filter(user=user)
@@ -101,37 +88,39 @@ def remove_from_watchlist(user: User, symbol: str) -> bool:
     Возвращает True если удалена, False если не найдена.
     """
     deleted_item = WatchlistItem.objects.filter(user=user, symbol=symbol).delete()
-    return True if deleted_item[0] == 1 else False
+    return bool(deleted_item[0])
 
 
 def _validate_coingecko(symbol: str) -> tuple[str, str]:
     """Проверяет существование символа через CoinGecko API."""
-    client = ApiClient(base_url="https://api.coingecko.com/api/v3")
+    client = ApiClient(base_url=settings.COINGECKO_BASE_URL)
     data = client.get_json(endpoint="/search", params={"query": symbol})
 
-    for coin in data["coins"]:
-        if coin["symbol"] == symbol.upper():
-            return coin["symbol"], coin["name"]
-
-    raise SymbolNotFoundError
+    symbol_upper = symbol.upper()
+    by_symbol = {c["symbol"]: c["name"] for c in data["coins"]}
+    name = by_symbol.get(symbol_upper)
+    if name is None:
+        raise SymbolNotFoundOnExchangeError
+    return symbol_upper, name
 
 
 def _validate_cmc(symbol: str) -> tuple[str, str]:
     """Проверяет существование символа через CoinMarketCap API."""
     client = ApiClient(
-        base_url="https://pro-api.coinmarketcap.com/v1",
-        headers={"X-CMC_PRO_API_KEY": os.getenv("CMC_API_KEY")},
+        base_url=settings.CMC_BASE_URL,
+        headers={"X-CMC_PRO_API_KEY": settings.CMC_API_KEY},
     )
     data = client.get_json(
         endpoint="/cryptocurrency/map",
         params={"symbol": symbol.upper()},
     )
 
-    for coin in data.get("data", []):
-        if coin["symbol"] == symbol.upper():
-            return coin["symbol"], coin["name"]
-
-    raise SymbolNotFoundError
+    symbol_upper = symbol.upper()
+    by_symbol = {c["symbol"]: c["name"] for c in data.get("data", [])}
+    name = by_symbol.get(symbol_upper)
+    if name is None:
+        raise SymbolNotFoundOnExchangeError
+    return symbol_upper, name
 
 
 VALIDATORS = {
@@ -165,6 +154,6 @@ def add_to_watchlist(user: User, symbol: str) -> WatchlistItem:
             coin_name=coin_info[1],
         )
     except IntegrityError:
-        raise ExistInWatchlistError
+        raise WatchlistDuplicateError
 
     return item

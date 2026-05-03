@@ -6,10 +6,9 @@ Unit-тесты сервисного слоя watchlist.
 
 import pytest
 
+from crypto.exceptions import SymbolNotFoundOnExchangeError, WatchlistDuplicateError
 from crypto.models import WatchlistItem
 from crypto.services import (
-    ExistInWatchlistError,
-    SymbolNotFoundError,
     add_to_watchlist,
     get_user_watchlist,
     remove_from_watchlist,
@@ -26,8 +25,8 @@ def test_validate_symbol_found(mock_api_symbol_found):
 
 
 def test_validate_symbol_not_found(mock_api_symbol_not_found):
-    """Если символа нет на бирже — выбрасывает SymbolNotFoundError."""
-    with pytest.raises(SymbolNotFoundError):
+    """Если символа нет на бирже — выбрасывает SymbolNotFoundOnExchangeError."""
+    with pytest.raises(SymbolNotFoundOnExchangeError):
         validate_symbol("NONEXISTENT")
 
 
@@ -55,18 +54,18 @@ def test_add_to_watchlist_success(user_a, mock_api_symbol_found):
 
 
 def test_add_to_watchlist_invalid_symbol(user_a, mock_api_symbol_not_found):
-    """Если символ не найден — SymbolNotFoundError, запись не создаётся."""
-    with pytest.raises(SymbolNotFoundError):
+    """Если символ не найден — SymbolNotFoundOnExchangeError, запись не создаётся."""
+    with pytest.raises(SymbolNotFoundOnExchangeError):
         add_to_watchlist(user_a, "NONEXISTENT")
 
     assert WatchlistItem.objects.count() == 0
 
 
 def test_add_to_watchlist_duplicate(user_a, mock_api_symbol_found):
-    """Повторное добавление той же монеты — ExistInWatchlistError."""
+    """Повторное добавление той же монеты — WatchlistDuplicateError."""
     add_to_watchlist(user_a, "btc")  # первый раз — ок
 
-    with pytest.raises(ExistInWatchlistError):
+    with pytest.raises(WatchlistDuplicateError):
         add_to_watchlist(user_a, "btc")  # второй раз — ошибка
 
 

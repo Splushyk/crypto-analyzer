@@ -74,7 +74,7 @@ addopts = [
     "--cov=crypto",
     "--cov-report=term-missing",
 ]
-DJANGO_SETTINGS_MODULE = "config.settings"
+DJANGO_SETTINGS_MODULE = "config.settings.test"
 
 [tool.coverage.report]
 exclude_lines = [
@@ -90,7 +90,7 @@ warn_redundant_casts = true
 no_implicit_optional = true
 
 [tool.django-stubs]
-django_settings_module = "config.settings"
+django_settings_module = "config.settings.base"
 
 [[tool.mypy.overrides]]
 module = ["environ", "environ.*"]
