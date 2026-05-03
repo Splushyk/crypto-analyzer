@@ -54,6 +54,21 @@ uv run python manage.py migrate
 uv run python manage.py createsuperuser
 ```
 
+## Settings
+
+Настройки разделены по окружениям:
+
+* `config/settings/base.py` — общие.
+* `config/settings/dev.py` — локальная разработка (`DEBUG=True`, debug-toolbar). Используется по умолчанию для `manage.py` и Celery.
+* `config/settings/test.py` — pytest (Celery в режиме eager, без throttle).
+* `config/settings/prod.py` — production (`DEBUG=False`). Используется по умолчанию для `wsgi.py` / gunicorn.
+
+Переопределить можно через переменную окружения:
+
+```bash
+DJANGO_SETTINGS_MODULE=config.settings.prod uv run python manage.py check
+```
+
 ## Запуск
 
 ### Development

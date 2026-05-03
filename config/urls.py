@@ -43,7 +43,7 @@ urlpatterns = [
     path("api/<str:version>/", include("crypto.urls")),
 ]
 
-if not settings.TESTING:
+if "debug_toolbar" in settings.INSTALLED_APPS:
     from debug_toolbar.toolbar import debug_toolbar_urls
 
     urlpatterns = [*urlpatterns] + debug_toolbar_urls()
