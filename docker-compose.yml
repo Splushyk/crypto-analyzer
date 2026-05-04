@@ -1,0 +1,81 @@
+services:
+    db:
+      image: postgres:18
+      env_file:
+        - .env
+      environment:
+        POSTGRES_DB: ${DB_NAME}
+        POSTGRES_USER: ${DB_USER}
+        POSTGRES_PASSWORD: ${DB_PASSWORD}
+      volumes:
+        - pgdata:/var/lib/postgresql
+      ports:
+        - "127.0.0.1:5432:5432"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+        interval: 5s
+        timeout: 5s
+        retries: 5
+
+    redis:
+      image: redis:8-alpine
+      healthcheck:
+        test: [ "CMD", "redis-cli", "ping" ]
+        interval: 5s
+        timeout: 3s
+        retries: 5
+
+    web:
+      build: .
+      image: crypto-analyzer:dev
+      env_file:
+        - .env
+      volumes:
+        - staticfiles:/app/staticfiles
+      depends_on:
+        db:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      command: >
+        sh -c "python manage.py migrate &&
+               python manage.py collectstatic --noinput &&
+               gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3"
+
+    celery-worker:
+      build: .
+      image: crypto-analyzer:dev
+      env_file:
+        - .env
+      depends_on:
+        db:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      command: celery -A config worker -l info
+
+    celery-beat:
+      build: .
+      image: crypto-analyzer:dev
+      env_file:
+        - .env
+      depends_on:
+        db:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      command: celery -A config beat -l info
+
+    nginx:
+      image: nginx:1.29-alpine
+      volumes:
+        - ./nginx.conf:/etc/nginx/nginx.conf:ro
+        - staticfiles:/usr/share/nginx/html/static:ro
+      ports:
+        - "127.0.0.1:80:80"
+      depends_on:
+        - web
+
+volumes:
+  pgdata:
+  staticfiles:
