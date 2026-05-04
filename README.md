@@ -25,7 +25,9 @@ Django REST API для сбора, хранения и анализа рыноч
 
 ## Установка
 
-Зависимости: Python 3.14+, Postgres, Redis, пакетный менеджер [`uv`](https://docs.astral.sh/uv/).
+Рекомендуемый способ — через Docker Compose (см. раздел [Запуск через Docker](#запуск-через-docker)). Локальная установка нужна только при запуске приложения без контейнеров.
+
+Зависимости для локального запуска: Python 3.14+, Postgres, Redis, пакетный менеджер [`uv`](https://docs.astral.sh/uv/).
 
 ```bash
 git clone <repo-url>
@@ -69,7 +71,56 @@ uv run python manage.py createsuperuser
 DJANGO_SETTINGS_MODULE=config.settings.prod uv run python manage.py check
 ```
 
-## Запуск
+## Запуск через Docker
+
+Весь стек (Django + PostgreSQL + Redis + Celery worker + Celery beat) поднимается одной командой через Docker Compose. Удобный интерфейс — через `Makefile`.
+
+**Требования:** Docker и Docker Compose v2.
+
+**Первый запуск:**
+
+```bash
+cp .env.example .env  # заполнить значения (как минимум SECRET_KEY и DB_PASSWORD)
+make up               # собирает образы и поднимает контейнеры
+make migrate          # применяет миграции
+make createsuperuser  # (опционально) создаёт админа
+```
+
+После этого приложение доступно на http://127.0.0.1/, Swagger UI — на http://127.0.0.1/api/docs/.
+
+**Команды Makefile:**
+
+```bash
+make            # показать список всех команд
+make up         # поднять стек в фоне
+make down       # остановить контейнеры (volumes сохраняются)
+make logs       # смотреть логи всех сервисов
+make ps         # статус контейнеров
+make shell      # sh внутри web-контейнера
+make migrate    # применить миграции
+make lint       # запустить линтеры (pre-commit)
+make format     # отформатировать код (ruff format)
+make test       # запустить тесты (compose должен быть up — нужна БД)
+```
+
+**Состав сервисов в `docker-compose.yml`:**
+
+| Сервис | Образ | Назначение |
+| --- | --- | --- |
+| `db` | `postgres:18` | Реляционная БД, данные сохраняются в named volume `pgdata` |
+| `redis` | `redis:8-alpine` | Брокер и result backend для Celery |
+| `web` | собирается из `Dockerfile` | Django + gunicorn (доступен только внутри docker-сети) |
+| `celery-worker` | тот же образ | Воркер Celery |
+| `celery-beat` | тот же образ | Планировщик задач Celery |
+| `nginx` | `nginx:1.29-alpine` | Reverse proxy перед gunicorn, отдаёт статику с диска |
+
+Единственная точка входа снаружи — nginx на `127.0.0.1:80`. Запросы на `/static/` обслуживаются nginx напрямую (через shared volume `staticfiles`), всё остальное проксируется в gunicorn по docker-сети.
+
+**Безопасность:** в `Dockerfile` создаётся системный пользователь `app` (UID 1000), приложение запускается от него — не от root.
+
+**Persistence:** данные PostgreSQL хранятся в named volume `pgdata` и переживают `make down`. Полный сброс — `docker compose down -v`.
+
+## Запуск без Docker
 
 ### Development
 
@@ -79,7 +130,7 @@ uv run celery -A config worker -l INFO
 uv run celery -A config beat -l INFO
 ```
 
-### Production (Gunicorn + Whitenoise)
+### Production (Gunicorn)
 
 Перед первым запуском (и после каждого деплоя) собрать статику:
 
@@ -95,7 +146,7 @@ uv run gunicorn config.wsgi:application
 
 По умолчанию слушает `127.0.0.1:8000` с одним sync-воркером. Для прод-окружения адрес и количество воркеров задаются флагами `--bind` и `--workers`.
 
-Статика (админка, Swagger UI, DRF browsable API) отдаётся через [Whitenoise](https://whitenoise.readthedocs.io/) с хешированием имён и gzip-сжатием (`CompressedManifestStaticFilesStorage`).
+В production-окружении (например, через Docker Compose) статика отдаётся через **nginx** напрямую с диска, минуя Django.
 
 ## Команды
 
@@ -209,12 +260,14 @@ uv run celery -A config beat -l INFO
 ### Запуск тестов:
 ```bash
 # Общая команда (конфигурация запуска настроена в pyproject.toml)
-uv run pytest
+uv run pytest        # или: make test
 
 # Запуск по категориям
 uv run pytest -m unit
 uv run pytest -m integration
 ```
+
+> **Важно:** тесты подключаются к БД через проброс порта `127.0.0.1:5432` (`config/settings/test.py` переопределяет `HOST`), поэтому перед запуском compose должен быть поднят (`make up`). При запуске без Docker требуется локальный Postgres на 5432.
 
 ## Разработка
 
