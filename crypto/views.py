@@ -7,6 +7,12 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from crypto.cache import (
+    CACHE_KEY_MARKET_STATS,
+    CACHE_KEY_TOP_MOVERS,
+    CACHE_KEY_VOLUME_LEADERS,
+    cache_aside,
+)
 from crypto.exceptions import (
     NoDataForAnalysisError,
     WatchlistItemNotFoundError,
@@ -100,31 +106,32 @@ class WatchlistDetailView(APIView):
 @market_stats_schema
 class MarketStatsView(APIView):
     def get(self, request: Request, **kwargs) -> Response:
-        stats = get_market_stats()
-        if stats is None:
+        data = cache_aside(
+            CACHE_KEY_MARKET_STATS, get_market_stats, MarketStatsSerializer
+        )
+        if data is None:
             raise NoDataForAnalysisError()
-        serializer = MarketStatsSerializer(stats)
-        return Response(serializer.data)
+        return Response(data)
 
 
 @top_movers_schema
 class TopMoversView(APIView):
     def get(self, request: Request, **kwargs) -> Response:
-        tops = get_top_movers()
-        if tops is None:
+        data = cache_aside(CACHE_KEY_TOP_MOVERS, get_top_movers, TopMoversSerializer)
+        if data is None:
             raise NoDataForAnalysisError()
-        serializer = TopMoversSerializer(tops)
-        return Response(serializer.data)
+        return Response(data)
 
 
 @volume_leaders_schema
 class VolumeLeadersView(APIView):
     def get(self, request: Request, **kwargs) -> Response:
-        leaders = get_volume_leaders()
-        if leaders is None:
+        data = cache_aside(
+            CACHE_KEY_VOLUME_LEADERS, get_volume_leaders, VolumeLeadersSerializer
+        )
+        if data is None:
             raise NoDataForAnalysisError()
-        serializer = VolumeLeadersSerializer(leaders)
-        return Response(serializer.data)
+        return Response(data)
 
 
 @fetch_snapshot_schema
