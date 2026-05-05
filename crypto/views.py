@@ -1,4 +1,6 @@
 from celery.result import AsyncResult
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, status, viewsets
 from rest_framework.filters import OrderingFilter
@@ -61,6 +63,10 @@ class SnapshotViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = SnapshotPagination
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     ordering_fields = ["created_at", "total_market_cap"]
+
+    @method_decorator(cache_page(60 * 60))
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
 
 
 @coin_history_schema
