@@ -9,6 +9,7 @@ from crypto.cache import (
     CACHE_KEY_MARKET_STATS,
     CACHE_KEY_TOP_MOVERS,
     CACHE_KEY_VOLUME_LEADERS,
+    invalidate_coin_history,
 )
 from crypto.models import CoinPrice, Snapshot
 from crypto.serializers import (
@@ -105,5 +106,6 @@ def fetch_snapshot_task(source="coingecko"):
     coins = provider.get_coins()
     total_cap = CryptoAnalyzer(coins).analyze_data()["total_market_cap"]
     snapshot_id = _save_snapshot(coins, total_cap)
+    invalidate_coin_history()
     _cache_analytics()
     return snapshot_id

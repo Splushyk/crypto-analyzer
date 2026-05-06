@@ -1,4 +1,5 @@
 from celery.result import AsyncResult
+from django.core.cache import cache
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django_filters.rest_framework import DjangoFilterBackend
@@ -11,8 +12,10 @@ from rest_framework.views import APIView
 
 from crypto.cache import (
     CACHE_KEY_MARKET_STATS,
+    CACHE_KEY_PREFIX_COIN_HISTORY,
     CACHE_KEY_TOP_MOVERS,
     CACHE_KEY_VOLUME_LEADERS,
+    COIN_HISTORY_CACHE_TTL,
     cache_aside,
 )
 from crypto.exceptions import (
@@ -76,6 +79,27 @@ class CoinPriceHistoryView(generics.ListAPIView):
     filter_backends = [DjangoFilterBackend]
     queryset = CoinPrice.objects.all()
     pagination_class = CoinPriceCursorPagination
+
+    def list(self, request: Request, *args, **kwargs) -> Response:
+        symbol = request.query_params.get("symbol")
+        if not symbol:
+            return super().list(request, *args, **kwargs)
+
+        cursor = request.query_params.get("cursor", "")
+        min_price = request.query_params.get("min_price", "")
+        max_price = request.query_params.get("max_price", "")
+        key = (
+            f"{CACHE_KEY_PREFIX_COIN_HISTORY}"
+            f"_{symbol.upper()}_{cursor}_{min_price}_{max_price}"
+        )
+
+        cached = cache.get(key)
+        if cached is not None:
+            return Response(cached)
+
+        response = super().list(request, *args, **kwargs)
+        cache.set(key, response.data, COIN_HISTORY_CACHE_TTL)
+        return response
 
 
 class WatchlistView(APIView):
