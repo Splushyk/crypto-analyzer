@@ -10,6 +10,7 @@ from django.contrib.auth.models import User
 from django.db import IntegrityError
 from django.db.models import Avg, Max, Min, QuerySet, Sum
 
+from crypto.cache import invalidate_watchlist
 from crypto.exceptions import SymbolNotFoundOnExchangeError, WatchlistDuplicateError
 from crypto.models import CoinPrice, Snapshot, WatchlistItem
 from src.api_client import ApiClient
@@ -87,8 +88,10 @@ def remove_from_watchlist(user: User, symbol: str) -> bool:
     Удаляет монету из watchlist.
     Возвращает True если удалена, False если не найдена.
     """
-    deleted_item = WatchlistItem.objects.filter(user=user, symbol=symbol).delete()
-    return bool(deleted_item[0])
+    deleted_count, _ = WatchlistItem.objects.filter(user=user, symbol=symbol).delete()
+    if deleted_count:
+        invalidate_watchlist(user.id)
+    return bool(deleted_count)
 
 
 def _validate_coingecko(symbol: str) -> tuple[str, str]:
@@ -156,4 +159,5 @@ def add_to_watchlist(user: User, symbol: str) -> WatchlistItem:
     except IntegrityError:
         raise WatchlistDuplicateError
 
+    invalidate_watchlist(user.id)
     return item

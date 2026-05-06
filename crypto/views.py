@@ -16,7 +16,9 @@ from crypto.cache import (
     CACHE_KEY_TOP_MOVERS,
     CACHE_KEY_VOLUME_LEADERS,
     COIN_HISTORY_CACHE_TTL,
+    WATCHLIST_CACHE_TTL,
     cache_aside,
+    watchlist_cache_key,
 )
 from crypto.exceptions import (
     NoDataForAnalysisError,
@@ -108,9 +110,15 @@ class WatchlistView(APIView):
     @watchlist_get_schema
     def get(self, request: Request, **kwargs) -> Response:
         assert request.user.is_authenticated
-        user_watchlist = get_user_watchlist(request.user)
-        serializer = WatchlistSerializer(user_watchlist, many=True)
-        return Response(serializer.data)
+        user = request.user
+        data = cache_aside(
+            watchlist_cache_key(user.id),
+            lambda: get_user_watchlist(user),
+            WatchlistSerializer,
+            ttl=WATCHLIST_CACHE_TTL,
+            many=True,
+        )
+        return Response(data)
 
     @watchlist_post_schema
     def post(self, request: Request, **kwargs) -> Response:
