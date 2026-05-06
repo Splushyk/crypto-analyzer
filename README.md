@@ -264,6 +264,11 @@ uv run celery -A config beat -l INFO
 
 Cache-инфраструктура (ключи, TTL, хелпер `cache_aside`, функции `invalidate_*`) изолирована в `crypto/cache.py`.
 
+**Устойчивость к падению Redis:** включён `IGNORE_EXCEPTIONS = True` — при 
+недоступности Redis `cache.get` возвращает `None`, остальные операции становятся 
+no-op'ами. Cache-aside эндпоинты делают fallback на БД, watchlist mutations 
+отрабатывают, throttling временно не применяет лимиты. Подавленные исключения логируются через `django_redis.cache` (`DJANGO_REDIS_LOG_IGNORED_EXCEPTIONS = True` + блок `LOGGING`).
+
 ## Тестирование
 Используется разделение на Unit-тесты (логика) и Integration-тесты (работа с БД через Django ORM и REST API через тестовый `APIClient`).
 
