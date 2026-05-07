@@ -2,6 +2,7 @@ import os
 
 from celery import shared_task
 from django.core.cache import cache
+from django.db import transaction
 from requests.exceptions import RequestException
 
 from crypto.cache import (
@@ -44,6 +45,7 @@ def _build_provider(source):
     raise ValueError(f"Неизвестный источник: {source}")
 
 
+@transaction.atomic
 def _save_snapshot(coins, total_cap):
     """Сохраняет снимок рынка и цены монет в БД. Возвращает id снимка."""
     snapshot = Snapshot.objects.create(total_market_cap=total_cap)
@@ -105,7 +107,8 @@ def fetch_snapshot_task(source="coingecko"):
     provider = _build_provider(source)
     coins = provider.get_coins()
     total_cap = CryptoAnalyzer(coins).analyze_data()["total_market_cap"]
-    snapshot_id = _save_snapshot(coins, total_cap)
-    invalidate_coin_history()
-    _cache_analytics()
+    with transaction.atomic():
+        snapshot_id = _save_snapshot(coins, total_cap)
+        transaction.on_commit(invalidate_coin_history)
+        transaction.on_commit(_cache_analytics)
     return snapshot_id
