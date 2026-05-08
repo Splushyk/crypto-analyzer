@@ -20,6 +20,7 @@ from crypto.cache import (
     WATCHLIST_CACHE_TTL,
     cache_aside,
     portfolio_cache_key,
+    portfolio_history_cache_key,
     watchlist_cache_key,
 )
 from crypto.exceptions import (
@@ -35,6 +36,7 @@ from crypto.schemas import (
     coin_history_schema,
     fetch_snapshot_schema,
     market_stats_schema,
+    portfolio_history_schema,
     portfolio_schema,
     sell_position_schema,
     snapshot_viewset_schema,
@@ -51,6 +53,7 @@ from crypto.serializers import (
     CoinPriceSerializer,
     FetchSnapshotSerializer,
     MarketStatsSerializer,
+    PortfolioHistoryEntrySerializer,
     PortfolioSerializer,
     SellPositionSerializer,
     SellResultSerializer,
@@ -64,6 +67,7 @@ from crypto.services import (
     add_to_watchlist,
     buy_coin,
     get_market_stats,
+    get_portfolio_history,
     get_top_movers,
     get_user_portfolio,
     get_user_watchlist,
@@ -187,6 +191,23 @@ class PortfolioView(APIView):
             ttl=PORTFOLIO_CACHE_TTL,
         )
         return Response(data)
+
+
+@portfolio_history_schema
+class PortfolioHistoryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request, **kwargs) -> Response:
+        assert request.user.is_authenticated
+        user = request.user
+        data = cache_aside(
+            portfolio_history_cache_key(user.id),
+            lambda: get_portfolio_history(user),
+            PortfolioHistoryEntrySerializer,
+            ttl=PORTFOLIO_CACHE_TTL,
+            many=True,
+        )
+        return Response(data or [])
 
 
 @sell_position_schema

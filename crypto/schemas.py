@@ -17,6 +17,7 @@ from crypto.serializers import (
     CoinPriceSerializer,
     FetchSnapshotSerializer,
     MarketStatsSerializer,
+    PortfolioHistoryEntrySerializer,
     PortfolioSerializer,
     SellPositionSerializer,
     SellResultSerializer,
@@ -192,6 +193,23 @@ buy_coin_schema = extend_schema(
             request_only=True,
         ),
     ],
+    tags=["portfolio"],
+)
+
+
+portfolio_history_schema = extend_schema(
+    summary="Динамика стоимости портфеля по снимкам",
+    description=(
+        "Возвращает стоимость портфеля текущего пользователя на момент "
+        "каждого снимка рынка, начиная с самой ранней покупки. В каждый "
+        "снимок учитываются только позиции, купленные до его даты. "
+        "Если позиции не было в портфеле или её монеты не было в снимке - "
+        "она вкладывает 0."
+    ),
+    responses={
+        200: PortfolioHistoryEntrySerializer(many=True),
+        401: OpenApiResponse(description="Требуется аутентификация"),
+    },
     tags=["portfolio"],
 )
 

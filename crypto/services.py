@@ -18,6 +18,7 @@ from django.db.models import (
     Max,
     Min,
     OuterRef,
+    Prefetch,
     QuerySet,
     Subquery,
     Sum,
@@ -312,3 +313,39 @@ def get_user_portfolio(user: User) -> dict:
         "total_value": totals["total_value"] or Decimal("0"),
         "total_pnl": totals["total_pnl"] or Decimal("0"),
     }
+
+
+def get_portfolio_history(user: User) -> list[dict]:
+    """
+    Динамика стоимости портфеля по снимкам - по одной точке на снимок.
+    В каждый снимок учитываются только позиции, купленные до его даты.
+    """
+    positions = list(Portfolio.objects.filter(user=user))
+    if not positions:
+        return []
+
+    earliest_buy = min(p.bought_at for p in positions)
+    user_symbols = {p.symbol for p in positions}
+
+    relevant_prices = CoinPrice.objects.filter(symbol__in=user_symbols)
+    snapshots = (
+        Snapshot.objects.filter(created_at__gte=earliest_buy)
+        .prefetch_related(Prefetch("prices", queryset=relevant_prices))
+        .order_by("created_at")
+    )
+
+    history = []
+    for snap in snapshots:
+        prices_by_symbol = {cp.symbol: cp.price for cp in snap.prices.all()}
+        value = Decimal("0")
+        for p in positions:
+            if snap.created_at >= p.bought_at and p.symbol in prices_by_symbol:
+                value += prices_by_symbol[p.symbol] * p.amount
+        history.append(
+            {
+                "snapshot_id": snap.id,
+                "created_at": snap.created_at,
+                "portfolio_value": value,
+            }
+        )
+    return history

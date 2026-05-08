@@ -2,10 +2,12 @@
 Интеграционные тесты портфеля и баланса пользователя.
 """
 
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 from crypto.exceptions import (
     CoinNotInLatestSnapshotError,
@@ -14,23 +16,54 @@ from crypto.exceptions import (
     PositionNotFoundError,
 )
 from crypto.models import Balance, CoinPrice, Portfolio, Snapshot
-from crypto.services import buy_coin, get_user_portfolio, sell_position
+from crypto.services import (
+    buy_coin,
+    get_portfolio_history,
+    get_user_portfolio,
+    sell_position,
+)
 
 
 @pytest.fixture
-def latest_snapshot_with_btc(db):
+def make_btc_snapshot(db):
+    """Фабрика снимков с BTC по заданной цене (опционально с явным created_at)."""
+
+    def _make(price, created_at=None):
+        price = Decimal(price)
+        snapshot = Snapshot.objects.create(total_market_cap=price)
+        if created_at is not None:
+            Snapshot.objects.filter(pk=snapshot.pk).update(created_at=created_at)
+            snapshot.refresh_from_db()
+        CoinPrice.objects.create(
+            snapshot=snapshot,
+            name="Bitcoin",
+            symbol="BTC",
+            price=price,
+            change_24h=0,
+            volume=Decimal("0"),
+            market_cap=price,
+        )
+        return snapshot
+
+    return _make
+
+
+@pytest.fixture
+def make_empty_snapshot(db):
+    """Фабрика пустых снимков без CoinPrice для проверок типа
+    "монеты нет в последнем снимке".
+    """
+
+    def _make():
+        return Snapshot.objects.create(total_market_cap=Decimal("0"))
+
+    return _make
+
+
+@pytest.fixture
+def latest_snapshot_with_btc(make_btc_snapshot):
     """Снимок с одной монетой BTC по цене 100$."""
-    snapshot = Snapshot.objects.create(total_market_cap=Decimal("100"))
-    CoinPrice.objects.create(
-        snapshot=snapshot,
-        name="Bitcoin",
-        symbol="BTC",
-        price=Decimal("100"),
-        change_24h=0,
-        volume=Decimal("0"),
-        market_cap=Decimal("100"),
-    )
-    return snapshot
+    return make_btc_snapshot("100")
 
 
 @pytest.fixture
@@ -168,13 +201,12 @@ def test_sell_position_fails_for_other_users_position(
 
 
 def test_sell_position_rolls_back_when_coin_not_in_latest_snapshot(
-    funded_user, btc_position
+    funded_user, btc_position, make_empty_snapshot
 ):
     """Свежий снимок без BTC - продать нельзя, баланс и позиция нетронуты."""
     funded_user.balance.refresh_from_db()
     initial_balance = funded_user.balance.amount
-    # Создаём более свежий снимок без BTC.
-    Snapshot.objects.create(total_market_cap=Decimal("0"))
+    make_empty_snapshot()
 
     with pytest.raises(CoinNotInLatestSnapshotError):
         sell_position(funded_user, btc_position.id, Decimal("1"))
@@ -185,23 +217,15 @@ def test_sell_position_rolls_back_when_coin_not_in_latest_snapshot(
     assert btc_position.amount == Decimal("5")
 
 
-def test_get_user_portfolio_calculates_metrics(funded_user, latest_snapshot_with_btc):
+def test_get_user_portfolio_calculates_metrics(
+    funded_user, latest_snapshot_with_btc, make_btc_snapshot
+):
     """
     P&L: купили 2 BTC по 100, цена выросла до 150 (новый снимок) - P&L = +100.
     Считается на стороне БД через annotate+Subquery.
     """
     buy_coin(funded_user, "BTC", Decimal("2"))
-    # Новый снимок с другой ценой — фиксируем «рост» BTC.
-    new_snap = Snapshot.objects.create(total_market_cap=Decimal("150"))
-    CoinPrice.objects.create(
-        snapshot=new_snap,
-        name="Bitcoin",
-        symbol="BTC",
-        price=Decimal("150"),
-        change_24h=0,
-        volume=Decimal("0"),
-        market_cap=Decimal("150"),
-    )
+    make_btc_snapshot("150")
 
     result = get_user_portfolio(funded_user)
     positions = list(result["positions"])
@@ -220,15 +244,14 @@ def test_get_user_portfolio_calculates_metrics(funded_user, latest_snapshot_with
 
 
 def test_get_user_portfolio_handles_missing_coin_in_latest_snapshot(
-    funded_user, latest_snapshot_with_btc
+    funded_user, latest_snapshot_with_btc, make_empty_snapshot
 ):
     """
     Монета купленной позиции отсутствует в последнем снимке:
     current_price/value/pnl должны быть None, total_value/pnl не падают.
     """
     buy_coin(funded_user, "BTC", Decimal("1"))
-    # Свежий снимок БЕЗ BTC.
-    Snapshot.objects.create(total_market_cap=Decimal("0"))
+    make_empty_snapshot()
 
     result = get_user_portfolio(funded_user)
     pos = list(result["positions"])[0]
@@ -256,3 +279,41 @@ def test_get_user_portfolio_isolates_users(
     assert len(list(result_b["positions"])) == 1
     assert list(result_a["positions"])[0].amount == Decimal("1")
     assert list(result_b["positions"])[0].amount == Decimal("3")
+
+
+def test_portfolio_history_tracks_value_across_snapshots(
+    funded_user, latest_snapshot_with_btc, make_btc_snapshot
+):
+    """
+    Купили 2 BTC, после этого появилось ещё 2 снимка с разными ценами.
+    История должна вернуть две точки с пересчитанной стоимостью
+    (фикстурный снимок ДО покупки не учитывается).
+    """
+    buy_coin(funded_user, "BTC", Decimal("2"))
+    now = timezone.now()
+    make_btc_snapshot("100", created_at=now + timedelta(hours=1))
+    make_btc_snapshot("150", created_at=now + timedelta(hours=2))
+
+    history = get_portfolio_history(funded_user)
+
+    assert len(history) == 2
+    # сортировка по created_at — гарантирована явными timestamp'ами
+    assert history[0]["portfolio_value"] == Decimal("200")  # 100 * 2
+    assert history[1]["portfolio_value"] == Decimal("300")  # 150 * 2
+
+
+def test_portfolio_history_excludes_snapshots_before_purchase(
+    funded_user, latest_snapshot_with_btc, make_btc_snapshot
+):
+    """
+    Снимки, сделанные ДО покупки, не попадают в историю.
+    Снимок-фикстура был до buy_coin, поэтому не учитывается.
+    """
+    buy_coin(funded_user, "BTC", Decimal("1"))
+    new_snap = make_btc_snapshot("120")
+
+    history = get_portfolio_history(funded_user)
+
+    assert len(history) == 1
+    assert history[0]["snapshot_id"] == new_snap.id
+    assert history[0]["portfolio_value"] == Decimal("120")

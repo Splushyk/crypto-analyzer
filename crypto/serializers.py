@@ -78,6 +78,12 @@ class UserPortfolioSerializer(serializers.Serializer):
     positions = PortfolioPositionWithMetricsSerializer(many=True)
 
 
+class PortfolioHistoryEntrySerializer(serializers.Serializer):
+    snapshot_id = serializers.IntegerField()
+    created_at = serializers.DateTimeField()
+    portfolio_value = serializers.DecimalField(max_digits=22, decimal_places=2)
+
+
 class BuyCoinSerializer(serializers.Serializer):
     symbol = serializers.CharField(max_length=20)
     amount = serializers.DecimalField(max_digits=20, decimal_places=8)

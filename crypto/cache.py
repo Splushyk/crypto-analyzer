@@ -47,9 +47,15 @@ def portfolio_cache_key(user_id: int) -> str:
     return f"{CACHE_KEY_PREFIX_PORTFOLIO}_{user_id}"
 
 
+def portfolio_history_cache_key(user_id: int) -> str:
+    return f"{CACHE_KEY_PREFIX_PORTFOLIO}_history_{user_id}"
+
+
 def invalidate_portfolio(user_id: int) -> None:
-    """Сносит кеш портфеля конкретного юзера после buy/sell."""
-    cache.delete(portfolio_cache_key(user_id))
+    """Сносит кеш портфеля и истории конкретного юзера после buy/sell."""
+    cache.delete_many(
+        [portfolio_cache_key(user_id), portfolio_history_cache_key(user_id)]
+    )
 
 
 def invalidate_all_portfolios() -> None:
