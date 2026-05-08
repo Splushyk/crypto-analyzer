@@ -233,6 +233,8 @@ def sell_position(user: User, position_id: int, amount: Decimal) -> dict:
     Блокируется и позиция, и баланс - защита от параллельных продаж той же
     позиции и от lost update на балансе.
     """
+    balance = Balance.objects.select_for_update().get(user=user)
+
     try:
         position = Portfolio.objects.select_for_update().get(id=position_id, user=user)
     except Portfolio.DoesNotExist:
@@ -251,7 +253,6 @@ def sell_position(user: User, position_id: int, amount: Decimal) -> dict:
         raise CoinNotInLatestSnapshotError
 
     proceeds = (price * amount).quantize(CENT, rounding=ROUND_HALF_UP)
-    balance = Balance.objects.select_for_update().get(user=user)
     balance.amount += proceeds
     balance.save()
 
