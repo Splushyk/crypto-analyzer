@@ -29,6 +29,7 @@ from crypto.models import CoinPrice, Snapshot
 from crypto.pagination import CoinPriceCursorPagination, SnapshotPagination
 from crypto.permissions import IsAdminOrReadOnly
 from crypto.schemas import (
+    buy_coin_schema,
     coin_history_schema,
     fetch_snapshot_schema,
     market_stats_schema,
@@ -42,9 +43,11 @@ from crypto.schemas import (
 )
 from crypto.serializers import (
     AddToWatchlistSerializer,
+    BuyCoinSerializer,
     CoinPriceSerializer,
     FetchSnapshotSerializer,
     MarketStatsSerializer,
+    PortfolioSerializer,
     SnapshotSerializer,
     TopMoversSerializer,
     VolumeLeadersSerializer,
@@ -52,6 +55,7 @@ from crypto.serializers import (
 )
 from crypto.services import (
     add_to_watchlist,
+    buy_coin,
     get_market_stats,
     get_top_movers,
     get_user_watchlist,
@@ -139,6 +143,25 @@ class WatchlistDetailView(APIView):
         if not remove_from_watchlist(request.user, symbol):
             raise WatchlistItemNotFoundError()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@buy_coin_schema
+class BuyCoinView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, **kwargs) -> Response:
+        assert request.user.is_authenticated
+        serializer = BuyCoinSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        position = buy_coin(
+            user=request.user,
+            symbol=serializer.validated_data["symbol"],
+            amount=serializer.validated_data["amount"],
+        )
+        return Response(
+            PortfolioSerializer(position).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 @market_stats_schema

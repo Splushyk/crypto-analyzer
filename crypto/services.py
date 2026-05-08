@@ -5,14 +5,21 @@
 Не зависит от DRF — работает только с Django ORM и стандартной библиотекой.
 """
 
+from decimal import Decimal
+
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import Avg, Max, Min, QuerySet, Sum
 
 from crypto.cache import invalidate_watchlist
-from crypto.exceptions import SymbolNotFoundOnExchangeError, WatchlistDuplicateError
-from crypto.models import CoinPrice, Snapshot, WatchlistItem
+from crypto.exceptions import (
+    CoinNotInLatestSnapshotError,
+    InsufficientFundsError,
+    SymbolNotFoundOnExchangeError,
+    WatchlistDuplicateError,
+)
+from crypto.models import Balance, CoinPrice, Portfolio, Snapshot, WatchlistItem
 from src.api_client import ApiClient
 
 
@@ -161,3 +168,37 @@ def add_to_watchlist(user: User, symbol: str) -> WatchlistItem:
 
     invalidate_watchlist(user.id)
     return item
+
+
+@transaction.atomic
+def buy_coin(user: User, symbol: str, amount: Decimal) -> Portfolio:
+    """
+    Покупка монеты по цене последнего снимка. Атомарно: списание + создание позиции
+    или ничего. Баланс блокируется на время транзакции для защиты от lost update
+    при параллельных покупках.
+    """
+    symbol = symbol.upper()
+
+    price = (
+        _get_latest_snapshot_prices()
+        .filter(symbol=symbol)
+        .values_list("price", flat=True)
+        .first()
+    )
+    if price is None:
+        raise CoinNotInLatestSnapshotError
+
+    balance = Balance.objects.select_for_update().get(user=user)
+    cost = price * amount
+    if balance.amount < cost:
+        raise InsufficientFundsError
+
+    balance.amount -= cost
+    balance.save()
+
+    return Portfolio.objects.create(
+        user=user,
+        symbol=symbol,
+        amount=amount,
+        buy_price=price,
+    )

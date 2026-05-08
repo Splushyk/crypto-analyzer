@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from crypto.models import CoinPrice, Snapshot, WatchlistItem
+from crypto.models import CoinPrice, Portfolio, Snapshot, WatchlistItem
 
 
 class CoinPriceSerializer(serializers.ModelSerializer):
@@ -41,6 +41,22 @@ class TopMoversSerializer(serializers.Serializer):
 
 class VolumeLeadersSerializer(serializers.Serializer):
     leaders = CoinPriceSerializer(many=True, read_only=True)
+
+
+class PortfolioSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Portfolio
+        fields = ["id", "symbol", "amount", "buy_price", "bought_at"]
+
+
+class BuyCoinSerializer(serializers.Serializer):
+    symbol = serializers.CharField(max_length=20)
+    amount = serializers.DecimalField(max_digits=20, decimal_places=8)
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Amount must be positive.")
+        return value
 
 
 class FetchSnapshotSerializer(serializers.Serializer):

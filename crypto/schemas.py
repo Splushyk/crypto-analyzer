@@ -13,9 +13,11 @@ from rest_framework import serializers
 
 from crypto.serializers import (
     AddToWatchlistSerializer,
+    BuyCoinSerializer,
     CoinPriceSerializer,
     FetchSnapshotSerializer,
     MarketStatsSerializer,
+    PortfolioSerializer,
     SnapshotSerializer,
     TopMoversSerializer,
     VolumeLeadersSerializer,
@@ -142,6 +144,52 @@ watchlist_delete_schema = extend_schema(
         ),
     },
     tags=["watchlist"],
+)
+
+
+buy_coin_schema = extend_schema(
+    summary="Купить монету",
+    description=(
+        "Покупает монету по цене последнего снимка рынка. Списывает стоимость "
+        "с баланса пользователя и создаёт новую позицию в портфеле. Операция "
+        "атомарна: при ошибке (нехватка средств, монеты нет в снимке) "
+        "состояние БД не меняется."
+    ),
+    request=BuyCoinSerializer,
+    responses={
+        201: PortfolioSerializer,
+        400: OpenApiResponse(
+            response=error_response,
+            description="Монеты нет в снимке или недостаточно средств",
+            examples=[
+                OpenApiExample(
+                    "Монеты нет в снимке",
+                    value={
+                        "error": "Coin not present in the latest market snapshot.",
+                        "code": "coin_not_in_snapshot",
+                    },
+                    status_codes=["400"],
+                ),
+                OpenApiExample(
+                    "Недостаточно средств",
+                    value={
+                        "error": "Insufficient balance for this purchase.",
+                        "code": "insufficient_funds",
+                    },
+                    status_codes=["400"],
+                ),
+            ],
+        ),
+        401: OpenApiResponse(description="Требуется аутентификация"),
+    },
+    examples=[
+        OpenApiExample(
+            "Купить 0.5 BTC",
+            value={"symbol": "BTC", "amount": "0.5"},
+            request_only=True,
+        ),
+    ],
+    tags=["portfolio"],
 )
 
 
