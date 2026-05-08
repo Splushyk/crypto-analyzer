@@ -62,16 +62,15 @@ def test_fetch_snapshot_task_retries_on_api_error(mocker, sample_coin, settings)
     assert Snapshot.objects.count() == 1
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_fetch_snapshot_task_rolls_back_when_bulk_create_fails(
     mocker, sample_coin, settings
 ):
     """
-    Если INSERT в coin_prices упал, частичные данные не должны остаться в БД:
-    сохранение снимка обёрнуто в transaction.atomic.
+    Если INSERT в coin_prices упал, частичные данные не должны остаться в БД.
+    transaction=True - без него pytest-обёртка маскирует факт rollback'а самой задачи.
     """
-    # EAGER_PROPAGATES=True: исключение из задачи пробросится наружу,
-    # удобно проверить через pytest.raises вместо result.failed().
+    # EAGER_PROPAGATES=True: исключение из задачи пробросится наружу.
     settings.CELERY_TASK_EAGER_PROPAGATES = True
 
     mock_provider = mocker.Mock()
