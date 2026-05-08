@@ -99,6 +99,7 @@ make logs       # смотреть логи всех сервисов
 make ps         # статус контейнеров
 make shell      # sh внутри web-контейнера
 make migrate    # применить миграции
+make rebuild    # пересобрать образы и перезапустить контейнеры
 make lint       # запустить линтеры (pre-commit)
 make format     # отформатировать код (ruff format)
 make test       # запустить тесты (compose должен быть up — нужна БД)
