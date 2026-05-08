@@ -33,6 +33,7 @@ from crypto.schemas import (
     coin_history_schema,
     fetch_snapshot_schema,
     market_stats_schema,
+    sell_position_schema,
     snapshot_viewset_schema,
     task_status_schema,
     top_movers_schema,
@@ -48,6 +49,8 @@ from crypto.serializers import (
     FetchSnapshotSerializer,
     MarketStatsSerializer,
     PortfolioSerializer,
+    SellPositionSerializer,
+    SellResultSerializer,
     SnapshotSerializer,
     TopMoversSerializer,
     VolumeLeadersSerializer,
@@ -61,6 +64,7 @@ from crypto.services import (
     get_user_watchlist,
     get_volume_leaders,
     remove_from_watchlist,
+    sell_position,
 )
 from crypto.tasks import fetch_snapshot_task
 
@@ -162,6 +166,22 @@ class BuyCoinView(APIView):
             PortfolioSerializer(position).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+@sell_position_schema
+class SellPositionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, position_id: int, **kwargs) -> Response:
+        assert request.user.is_authenticated
+        serializer = SellPositionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = sell_position(
+            user=request.user,
+            position_id=position_id,
+            amount=serializer.validated_data["amount"],
+        )
+        return Response(SellResultSerializer(result).data)
 
 
 @market_stats_schema

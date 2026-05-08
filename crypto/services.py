@@ -16,6 +16,8 @@ from crypto.cache import invalidate_watchlist
 from crypto.exceptions import (
     CoinNotInLatestSnapshotError,
     InsufficientFundsError,
+    InvalidSellAmountError,
+    PositionNotFoundError,
     SymbolNotFoundOnExchangeError,
     WatchlistDuplicateError,
 )
@@ -202,3 +204,52 @@ def buy_coin(user: User, symbol: str, amount: Decimal) -> Portfolio:
         amount=amount,
         buy_price=price,
     )
+
+
+@transaction.atomic
+def sell_position(user: User, position_id: int, amount: Decimal) -> dict:
+    """
+    Продажа части позиции по текущей цене (последний снимок). Атомарно:
+    либо позиция уменьшается/удаляется + баланс пополняется, либо ничего.
+    Блокируется и позиция, и баланс - защита от параллельных продаж той же
+    позиции и от lost update на балансе.
+    """
+    try:
+        position = Portfolio.objects.select_for_update().get(id=position_id, user=user)
+    except Portfolio.DoesNotExist:
+        raise PositionNotFoundError
+
+    if amount > position.amount:
+        raise InvalidSellAmountError
+
+    price = (
+        _get_latest_snapshot_prices()
+        .filter(symbol=position.symbol)
+        .values_list("price", flat=True)
+        .first()
+    )
+    if price is None:
+        raise CoinNotInLatestSnapshotError
+
+    proceeds = price * amount
+    balance = Balance.objects.select_for_update().get(user=user)
+    balance.amount += proceeds
+    balance.save()
+
+    if amount == position.amount:
+        position.delete()
+        remaining_id = None
+        remaining_amount = Decimal("0")
+    else:
+        position.amount -= amount
+        position.save()
+        remaining_id = position.id
+        remaining_amount = position.amount
+
+    return {
+        "position_id": remaining_id,
+        "remaining_amount": remaining_amount,
+        "sale_price": price,
+        "proceeds": proceeds,
+        "new_balance": balance.amount,
+    }

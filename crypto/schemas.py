@@ -18,6 +18,8 @@ from crypto.serializers import (
     FetchSnapshotSerializer,
     MarketStatsSerializer,
     PortfolioSerializer,
+    SellPositionSerializer,
+    SellResultSerializer,
     SnapshotSerializer,
     TopMoversSerializer,
     VolumeLeadersSerializer,
@@ -186,6 +188,75 @@ buy_coin_schema = extend_schema(
         OpenApiExample(
             "Купить 0.5 BTC",
             value={"symbol": "BTC", "amount": "0.5"},
+            request_only=True,
+        ),
+    ],
+    tags=["portfolio"],
+)
+
+
+sell_position_schema = extend_schema(
+    summary="Продать монеты из позиции",
+    description=(
+        "Продаёт указанное количество монет из конкретной позиции портфеля "
+        "по текущей цене последнего снимка. Если продаётся весь объём — "
+        "позиция удаляется, иначе уменьшается. Выручка зачисляется на "
+        "баланс. Операция атомарна: при ошибке (нет позиции, чужая позиция, "
+        "объём больше остатка, монеты нет в снимке) состояние БД не меняется."
+    ),
+    request=SellPositionSerializer,
+    parameters=[
+        OpenApiParameter(
+            name="position_id",
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.PATH,
+            description="ID позиции в портфеле.",
+        ),
+    ],
+    responses={
+        200: SellResultSerializer,
+        400: OpenApiResponse(
+            response=error_response,
+            description="Объём больше остатка или монеты нет в снимке",
+            examples=[
+                OpenApiExample(
+                    "Объём больше остатка",
+                    value={
+                        "error": "Cannot sell more than the position holds.",
+                        "code": "invalid_sell_amount",
+                    },
+                    status_codes=["400"],
+                ),
+                OpenApiExample(
+                    "Монеты нет в снимке",
+                    value={
+                        "error": "Coin not present in the latest market snapshot.",
+                        "code": "coin_not_in_snapshot",
+                    },
+                    status_codes=["400"],
+                ),
+            ],
+        ),
+        401: OpenApiResponse(description="Требуется аутентификация"),
+        404: OpenApiResponse(
+            response=error_response,
+            description="Позиция не найдена или принадлежит другому пользователю",
+            examples=[
+                OpenApiExample(
+                    "Не найдено",
+                    value={
+                        "error": "Portfolio position not found.",
+                        "code": "position_not_found",
+                    },
+                    status_codes=["404"],
+                ),
+            ],
+        ),
+    },
+    examples=[
+        OpenApiExample(
+            "Продать 0.005 BTC из позиции",
+            value={"amount": "0.005"},
             request_only=True,
         ),
     ],

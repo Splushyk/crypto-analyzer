@@ -59,6 +59,23 @@ class BuyCoinSerializer(serializers.Serializer):
         return value
 
 
+class SellPositionSerializer(serializers.Serializer):
+    amount = serializers.DecimalField(max_digits=20, decimal_places=8)
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Amount must be positive.")
+        return value
+
+
+class SellResultSerializer(serializers.Serializer):
+    position_id = serializers.IntegerField(allow_null=True)
+    remaining_amount = serializers.DecimalField(max_digits=20, decimal_places=8)
+    sale_price = serializers.DecimalField(max_digits=20, decimal_places=6)
+    proceeds = serializers.DecimalField(max_digits=20, decimal_places=2)
+    new_balance = serializers.DecimalField(max_digits=20, decimal_places=2)
+
+
 class FetchSnapshotSerializer(serializers.Serializer):
     source = serializers.ChoiceField(  # type: ignore[assignment]
         choices=["coingecko", "cmc"],
