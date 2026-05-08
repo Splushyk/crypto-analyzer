@@ -80,6 +80,12 @@ def btc_position(funded_user, latest_snapshot_with_btc):
     return buy_coin(funded_user, "BTC", Decimal("5"))
 
 
+def assert_balance(user, expected):
+    """Перечитывает баланс из БД и сверяет с ожидаемым."""
+    user.balance.refresh_from_db()
+    assert user.balance.amount == expected
+
+
 def test_balance_is_created_for_new_user(db):
     """При создании юзера сигналом автоматически заводится нулевой баланс."""
     user = User.objects.create_user(username="new_user", password="pass12345")
@@ -89,110 +95,106 @@ def test_balance_is_created_for_new_user(db):
 
 
 def test_balance_is_not_recreated_on_user_update(user_a):
-    """При сохранении уже существующего юзера новый Balance не создаётся."""
-    initial_count = Balance.objects.filter(user=user_a).count()
+    """
+    При сохранении уже существующего юзера сигнал не создаёт новый Balance
+    и не сбрасывает amount: тот же объект, та же сумма.
+    """
+    user_a.balance.amount = Decimal("777")
+    user_a.balance.save()
+    initial_pk = user_a.balance.pk
 
     user_a.email = "changed@example.com"
     user_a.save()
 
-    assert Balance.objects.filter(user=user_a).count() == initial_count
+    assert Balance.objects.filter(user=user_a).count() == 1
+    user_a.balance.refresh_from_db()
+    assert user_a.balance.pk == initial_pk
+    assert user_a.balance.amount == Decimal("777")
 
 
 def test_buy_coin_success(funded_user, latest_snapshot_with_btc):
     """Успешная покупка: баланс уменьшается, позиция создаётся."""
     position = buy_coin(funded_user, "BTC", Decimal("2"))
 
-    funded_user.balance.refresh_from_db()
-    assert funded_user.balance.amount == Decimal("800")  # 1000 - 100*2
+    assert_balance(funded_user, Decimal("800"))  # 1000 - 100*2
     assert Portfolio.objects.filter(user=funded_user).count() == 1
     assert position.symbol == "BTC"
     assert position.amount == Decimal("2")
     assert position.buy_price == Decimal("100")
 
 
-def test_buy_coin_rolls_back_on_insufficient_funds(
-    funded_user, latest_snapshot_with_btc
+@pytest.mark.parametrize(
+    "symbol, amount, expected_exc",
+    [
+        ("BTC", Decimal("100"), InsufficientFundsError),  # 100*100 > 1000
+        ("ETH", Decimal("1"), CoinNotInLatestSnapshotError),
+    ],
+    ids=["insufficient_funds", "coin_not_in_snapshot"],
+)
+def test_buy_coin_rolls_back_on_failure(
+    funded_user, latest_snapshot_with_btc, symbol, amount, expected_exc
 ):
-    """Не хватает баланса -> откат: баланс не тронут, позиция не создана."""
+    """При любой ошибке buy_coin — баланс не тронут, позиция не создана."""
     initial_balance = funded_user.balance.amount
 
-    with pytest.raises(InsufficientFundsError):
-        buy_coin(funded_user, "BTC", Decimal("100"))  # 100*100 = 10000 > 1000
+    with pytest.raises(expected_exc):
+        buy_coin(funded_user, symbol, amount)
 
-    funded_user.balance.refresh_from_db()
-    assert funded_user.balance.amount == initial_balance
+    assert_balance(funded_user, initial_balance)
     assert Portfolio.objects.filter(user=funded_user).count() == 0
 
 
-def test_buy_coin_fails_when_symbol_not_in_latest_snapshot(
-    funded_user, latest_snapshot_with_btc
+def test_sell_position_partial_decreases_amount_and_credits_balance(
+    funded_user, btc_position
 ):
-    """Монеты нет в последнем снимке -> ошибка, баланс не тронут."""
-    initial_balance = funded_user.balance.amount
-
-    with pytest.raises(CoinNotInLatestSnapshotError):
-        buy_coin(funded_user, "ETH", Decimal("1"))
-
-    funded_user.balance.refresh_from_db()
-    assert funded_user.balance.amount == initial_balance
-    assert Portfolio.objects.filter(user=funded_user).count() == 0
-
-
-def test_sell_position_partial(funded_user, btc_position):
     """Продали часть: позиция уменьшилась, баланс пополнился."""
     result = sell_position(funded_user, btc_position.id, Decimal("2"))
 
-    funded_user.balance.refresh_from_db()
     btc_position.refresh_from_db()
     assert btc_position.amount == Decimal("3")
     # Баланс после buy = 500, продажа 2 BTC по 100 (+200) -> 700
-    assert funded_user.balance.amount == Decimal("700")
+    assert_balance(funded_user, Decimal("700"))
     assert result["position_id"] == btc_position.id
     assert result["remaining_amount"] == Decimal("3")
     assert result["proceeds"] == Decimal("200")
 
 
-def test_sell_position_full_deletes_it(funded_user, btc_position):
-    """Продали всё - позиция удалена."""
+def test_sell_position_full_amount_deletes_position(funded_user, btc_position):
+    """Продали весь объём — позиция удалена."""
     result = sell_position(funded_user, btc_position.id, Decimal("5"))
 
-    funded_user.balance.refresh_from_db()
     assert not Portfolio.objects.filter(id=btc_position.id).exists()
     # Баланс после buy = 500, продажа 5 BTC по 100 (+500) -> 1000
-    assert funded_user.balance.amount == Decimal("1000")
+    assert_balance(funded_user, Decimal("1000"))
     assert result["position_id"] is None
     assert result["remaining_amount"] == Decimal("0")
 
 
 def test_sell_position_rolls_back_when_amount_too_high(funded_user, btc_position):
-    """Продажа сверх остатка - откат, ничего не меняется."""
+    """Продажа сверх остатка — откат, ничего не меняется."""
     funded_user.balance.refresh_from_db()
     initial_balance = funded_user.balance.amount
 
     with pytest.raises(InvalidSellAmountError):
         sell_position(funded_user, btc_position.id, Decimal("10"))
 
-    funded_user.balance.refresh_from_db()
     btc_position.refresh_from_db()
-    assert funded_user.balance.amount == initial_balance
+    assert_balance(funded_user, initial_balance)
     assert btc_position.amount == Decimal("5")
 
 
 def test_sell_position_fails_for_unknown_id(funded_user, latest_snapshot_with_btc):
-    """Несуществующая позиция - 404."""
+    """Несуществующая позиция — 404."""
     initial_balance = funded_user.balance.amount
 
     with pytest.raises(PositionNotFoundError):
         sell_position(funded_user, position_id=99999, amount=Decimal("1"))
 
-    funded_user.balance.refresh_from_db()
-    assert funded_user.balance.amount == initial_balance
+    assert_balance(funded_user, initial_balance)
 
 
-def test_sell_position_fails_for_other_users_position(
-    user_b, btc_position, latest_snapshot_with_btc
-):
-    """Чужая позиция не находится - 404, у владельца ничего не изменилось."""
+def test_sell_position_fails_for_other_users_position(user_b, btc_position):
+    """Чужая позиция не находится (IDOR) — 404, у владельца ничего не изменилось."""
     with pytest.raises(PositionNotFoundError):
         sell_position(user_b, btc_position.id, Decimal("1"))
 
@@ -203,7 +205,7 @@ def test_sell_position_fails_for_other_users_position(
 def test_sell_position_rolls_back_when_coin_not_in_latest_snapshot(
     funded_user, btc_position, make_empty_snapshot
 ):
-    """Свежий снимок без BTC - продать нельзя, баланс и позиция нетронуты."""
+    """Свежий снимок без BTC — продать нельзя, баланс и позиция нетронуты."""
     funded_user.balance.refresh_from_db()
     initial_balance = funded_user.balance.amount
     make_empty_snapshot()
@@ -211,9 +213,8 @@ def test_sell_position_rolls_back_when_coin_not_in_latest_snapshot(
     with pytest.raises(CoinNotInLatestSnapshotError):
         sell_position(funded_user, btc_position.id, Decimal("1"))
 
-    funded_user.balance.refresh_from_db()
     btc_position.refresh_from_db()
-    assert funded_user.balance.amount == initial_balance
+    assert_balance(funded_user, initial_balance)
     assert btc_position.amount == Decimal("5")
 
 
