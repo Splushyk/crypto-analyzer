@@ -54,6 +54,16 @@ def _get_latest_snapshot_prices() -> QuerySet[CoinPrice]:
     return CoinPrice.objects.filter(snapshot=latest_snapshot)
 
 
+def _get_latest_price(symbol: str) -> Decimal | None:
+    """Цена монеты из последнего снимка или None, если её там нет."""
+    return (
+        _get_latest_snapshot_prices()
+        .filter(symbol=symbol)
+        .values_list("price", flat=True)
+        .first()
+    )
+
+
 def get_market_stats() -> dict[str, float] | None:
     """
     Агрегированная статистика цен по последнему снимку рынка.
@@ -198,12 +208,7 @@ def buy_coin(user: User, symbol: str, amount: Decimal) -> Portfolio:
     """
     symbol = symbol.upper()
 
-    price = (
-        _get_latest_snapshot_prices()
-        .filter(symbol=symbol)
-        .values_list("price", flat=True)
-        .first()
-    )
+    price = _get_latest_price(symbol)
     if price is None:
         raise CoinNotInLatestSnapshotError
 
@@ -243,12 +248,7 @@ def sell_position(user: User, position_id: int, amount: Decimal) -> dict:
     if amount > position.amount:
         raise InvalidSellAmountError
 
-    price = (
-        _get_latest_snapshot_prices()
-        .filter(symbol=position.symbol)
-        .values_list("price", flat=True)
-        .first()
-    )
+    price = _get_latest_price(position.symbol)
     if price is None:
         raise CoinNotInLatestSnapshotError
 
