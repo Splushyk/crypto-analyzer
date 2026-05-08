@@ -40,6 +40,7 @@ from crypto.models import Balance, CoinPrice, Portfolio, Snapshot, WatchlistItem
 from src.api_client import ApiClient
 
 CENT = Decimal("0.01")
+MONEY_FIELD = DecimalField(max_digits=22, decimal_places=2)
 
 
 def _get_latest_snapshot_prices() -> QuerySet[CoinPrice]:
@@ -291,30 +292,33 @@ def get_user_portfolio(user: User) -> dict:
     ).values("price")[:1]
 
     # output_field обязателен: иначе Django теряет точность Decimal на умножении.
-    money = DecimalField(max_digits=22, decimal_places=2)
-    positions = (
+    positions = list(
         Portfolio.objects.filter(user=user)
         .annotate(current_price=Subquery(current_price_sq))
         .annotate(
             current_value=ExpressionWrapper(
-                F("current_price") * F("amount"), output_field=money
+                F("current_price") * F("amount"), output_field=MONEY_FIELD
             ),
             pnl=ExpressionWrapper(
                 (F("current_price") - F("buy_price")) * F("amount"),
-                output_field=money,
+                output_field=MONEY_FIELD,
             ),
         )
     )
 
-    totals = positions.aggregate(
-        total_value=Sum("current_value"),
-        total_pnl=Sum("pnl"),
+    total_value = sum(
+        (p.current_value for p in positions if p.current_value is not None),
+        Decimal("0"),
+    )
+    total_pnl = sum(
+        (p.pnl for p in positions if p.pnl is not None),
+        Decimal("0"),
     )
 
     return {
         "positions": positions,
-        "total_value": totals["total_value"] or Decimal("0"),
-        "total_pnl": totals["total_pnl"] or Decimal("0"),
+        "total_value": total_value,
+        "total_pnl": total_pnl,
     }
 
 
