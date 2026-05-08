@@ -46,7 +46,6 @@ def _build_provider(source):
     raise ValueError(f"Неизвестный источник: {source}")
 
 
-@transaction.atomic
 def _save_snapshot(coins, total_cap):
     """Сохраняет снимок рынка и цены монет в БД. Возвращает id снимка."""
     snapshot = Snapshot.objects.create(total_market_cap=total_cap)
