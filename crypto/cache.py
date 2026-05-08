@@ -22,6 +22,12 @@ CACHE_KEY_PREFIX_COIN_HISTORY = "coin_history"
 # Префикс для per-user ключей watchlist. Полный ключ: watchlist_{user_id}.
 CACHE_KEY_PREFIX_WATCHLIST = "watchlist"
 
+# Префикс для per-user ключей портфеля. Полный ключ: portfolio_{user_id}.
+# Сносится при buy/sell конкретного юзера и при появлении нового снимка
+# (тогда у всех юзеров поменялась текущая цена -> все ключи невалидны).
+CACHE_KEY_PREFIX_PORTFOLIO = "portfolio"
+PORTFOLIO_CACHE_TTL = 60 * 70  # с запасом > часа beat-расписания
+
 
 def invalidate_coin_history() -> None:
     """Сносит весь кеш истории цен - данные изменились с появлением нового снимка."""
@@ -35,6 +41,23 @@ def watchlist_cache_key(user_id: int) -> str:
 def invalidate_watchlist(user_id: int) -> None:
     """Сносит кеш watchlist конкретного пользователя - после add/remove."""
     cache.delete(watchlist_cache_key(user_id))
+
+
+def portfolio_cache_key(user_id: int) -> str:
+    return f"{CACHE_KEY_PREFIX_PORTFOLIO}_{user_id}"
+
+
+def invalidate_portfolio(user_id: int) -> None:
+    """Сносит кеш портфеля конкретного юзера после buy/sell."""
+    cache.delete(portfolio_cache_key(user_id))
+
+
+def invalidate_all_portfolios() -> None:
+    """
+    Сносит кеш портфеля у всех юзеров: после нового снимка цены
+    поменялись для всех, все ключи невалидны.
+    """
+    cast(RedisCache, cache).delete_pattern(f"{CACHE_KEY_PREFIX_PORTFOLIO}_*")
 
 
 def cache_aside(

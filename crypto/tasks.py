@@ -10,6 +10,7 @@ from crypto.cache import (
     CACHE_KEY_MARKET_STATS,
     CACHE_KEY_TOP_MOVERS,
     CACHE_KEY_VOLUME_LEADERS,
+    invalidate_all_portfolios,
     invalidate_coin_history,
 )
 from crypto.models import CoinPrice, Snapshot
@@ -110,5 +111,6 @@ def fetch_snapshot_task(source="coingecko"):
     with transaction.atomic():
         snapshot_id = _save_snapshot(coins, total_cap)
         transaction.on_commit(invalidate_coin_history)
+        transaction.on_commit(invalidate_all_portfolios)
         transaction.on_commit(_cache_analytics)
     return snapshot_id

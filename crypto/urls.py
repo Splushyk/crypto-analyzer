@@ -6,6 +6,7 @@ from crypto.views import (
     CoinPriceHistoryView,
     FetchSnapshotView,
     MarketStatsView,
+    PortfolioView,
     SellPositionView,
     SnapshotViewSet,
     TaskStatusView,
@@ -25,6 +26,7 @@ urlpatterns = router.urls + [
     path("analytics/market-stats/", MarketStatsView.as_view()),
     path("analytics/top-movers/", TopMoversView.as_view()),
     path("analytics/volume-leaders/", VolumeLeadersView.as_view()),
+    path("portfolio/", PortfolioView.as_view()),
     path("portfolio/buy/", BuyCoinView.as_view()),
     path(
         "portfolio/positions/<int:position_id>/sell/",

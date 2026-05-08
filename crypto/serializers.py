@@ -49,6 +49,35 @@ class PortfolioSerializer(serializers.ModelSerializer):
         fields = ["id", "symbol", "amount", "buy_price", "bought_at"]
 
 
+class PortfolioPositionWithMetricsSerializer(serializers.ModelSerializer):
+    current_price = serializers.DecimalField(
+        max_digits=20, decimal_places=6, allow_null=True
+    )
+    current_value = serializers.DecimalField(
+        max_digits=22, decimal_places=2, allow_null=True
+    )
+    pnl = serializers.DecimalField(max_digits=22, decimal_places=2, allow_null=True)
+
+    class Meta:
+        model = Portfolio
+        fields = [
+            "id",
+            "symbol",
+            "amount",
+            "buy_price",
+            "bought_at",
+            "current_price",
+            "current_value",
+            "pnl",
+        ]
+
+
+class UserPortfolioSerializer(serializers.Serializer):
+    total_value = serializers.DecimalField(max_digits=22, decimal_places=2)
+    total_pnl = serializers.DecimalField(max_digits=22, decimal_places=2)
+    positions = PortfolioPositionWithMetricsSerializer(many=True)
+
+
 class BuyCoinSerializer(serializers.Serializer):
     symbol = serializers.CharField(max_length=20)
     amount = serializers.DecimalField(max_digits=20, decimal_places=8)

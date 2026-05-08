@@ -10,9 +10,23 @@ from decimal import Decimal
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import IntegrityError, transaction
-from django.db.models import Avg, Max, Min, QuerySet, Sum
+from django.db.models import (
+    Avg,
+    DecimalField,
+    ExpressionWrapper,
+    F,
+    Max,
+    Min,
+    OuterRef,
+    QuerySet,
+    Subquery,
+    Sum,
+)
 
-from crypto.cache import invalidate_watchlist
+from crypto.cache import (
+    invalidate_portfolio,
+    invalidate_watchlist,
+)
 from crypto.exceptions import (
     CoinNotInLatestSnapshotError,
     InsufficientFundsError,
@@ -198,12 +212,14 @@ def buy_coin(user: User, symbol: str, amount: Decimal) -> Portfolio:
     balance.amount -= cost
     balance.save()
 
-    return Portfolio.objects.create(
+    position = Portfolio.objects.create(
         user=user,
         symbol=symbol,
         amount=amount,
         buy_price=price,
     )
+    transaction.on_commit(lambda: invalidate_portfolio(user.id))
+    return position
 
 
 @transaction.atomic
@@ -246,10 +262,53 @@ def sell_position(user: User, position_id: int, amount: Decimal) -> dict:
         remaining_id = position.id
         remaining_amount = position.amount
 
+    transaction.on_commit(lambda: invalidate_portfolio(user.id))
+
     return {
         "position_id": remaining_id,
         "remaining_amount": remaining_amount,
         "sale_price": price,
         "proceeds": proceeds,
         "new_balance": balance.amount,
+    }
+
+
+def get_user_portfolio(user: User) -> dict:
+    """
+    Позиции пользователя с текущей ценой и P&L + суммарные показатели.
+    Подсчёт через annotate + коррелированный Subquery -> один SQL,
+    избегаем N+1 на цене из последнего снимка для каждой позиции.
+    """
+    latest_snapshot_id = Snapshot.objects.order_by("-created_at").values("id")[:1]
+
+    current_price_sq = CoinPrice.objects.filter(
+        snapshot=Subquery(latest_snapshot_id),
+        symbol=OuterRef("symbol"),
+    ).values("price")[:1]
+
+    # output_field обязателен: иначе Django теряет точность Decimal на умножении.
+    money = DecimalField(max_digits=22, decimal_places=2)
+    positions = (
+        Portfolio.objects.filter(user=user)
+        .annotate(current_price=Subquery(current_price_sq))
+        .annotate(
+            current_value=ExpressionWrapper(
+                F("current_price") * F("amount"), output_field=money
+            ),
+            pnl=ExpressionWrapper(
+                (F("current_price") - F("buy_price")) * F("amount"),
+                output_field=money,
+            ),
+        )
+    )
+
+    totals = positions.aggregate(
+        total_value=Sum("current_value"),
+        total_pnl=Sum("pnl"),
+    )
+
+    return {
+        "positions": positions,
+        "total_value": totals["total_value"] or Decimal("0"),
+        "total_pnl": totals["total_pnl"] or Decimal("0"),
     }

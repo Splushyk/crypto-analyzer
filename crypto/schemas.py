@@ -22,6 +22,7 @@ from crypto.serializers import (
     SellResultSerializer,
     SnapshotSerializer,
     TopMoversSerializer,
+    UserPortfolioSerializer,
     VolumeLeadersSerializer,
     WatchlistSerializer,
 )
@@ -191,6 +192,22 @@ buy_coin_schema = extend_schema(
             request_only=True,
         ),
     ],
+    tags=["portfolio"],
+)
+
+
+portfolio_schema = extend_schema(
+    summary="Портфель пользователя с P&L",
+    description=(
+        "Возвращает все позиции текущего пользователя с текущей ценой "
+        "(из последнего снимка) и P&L по каждой позиции, плюс суммарную "
+        "стоимость и суммарный P&L. Результат кешируется. Если монеты "
+        "позиции нет в последнем снимке — current_price/value/pnl будут null."
+    ),
+    responses={
+        200: UserPortfolioSerializer,
+        401: OpenApiResponse(description="Требуется аутентификация"),
+    },
     tags=["portfolio"],
 )
 
