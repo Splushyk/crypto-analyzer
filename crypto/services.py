@@ -5,7 +5,7 @@
 Не зависит от DRF — работает только с Django ORM и стандартной библиотекой.
 """
 
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -38,6 +38,8 @@ from crypto.exceptions import (
 )
 from crypto.models import Balance, CoinPrice, Portfolio, Snapshot, WatchlistItem
 from src.api_client import ApiClient
+
+CENT = Decimal("0.01")
 
 
 def _get_latest_snapshot_prices() -> QuerySet[CoinPrice]:
@@ -206,7 +208,7 @@ def buy_coin(user: User, symbol: str, amount: Decimal) -> Portfolio:
         raise CoinNotInLatestSnapshotError
 
     balance = Balance.objects.select_for_update().get(user=user)
-    cost = price * amount
+    cost = (price * amount).quantize(CENT, rounding=ROUND_HALF_UP)
     if balance.amount < cost:
         raise InsufficientFundsError
 
@@ -248,7 +250,7 @@ def sell_position(user: User, position_id: int, amount: Decimal) -> dict:
     if price is None:
         raise CoinNotInLatestSnapshotError
 
-    proceeds = price * amount
+    proceeds = (price * amount).quantize(CENT, rounding=ROUND_HALF_UP)
     balance = Balance.objects.select_for_update().get(user=user)
     balance.amount += proceeds
     balance.save()
