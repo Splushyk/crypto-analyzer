@@ -7,8 +7,11 @@ from decimal import Decimal
 
 import pytest
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from django.utils import timezone
+from rest_framework.test import APIClient
 
+from crypto.cache import portfolio_cache_key
 from crypto.exceptions import (
     CoinNotInLatestSnapshotError,
     InsufficientFundsError,
@@ -318,3 +321,63 @@ def test_portfolio_history_excludes_snapshots_before_purchase(
     assert len(history) == 1
     assert history[0]["snapshot_id"] == new_snap.id
     assert history[0]["portfolio_value"] == Decimal("120")
+
+
+# Тесты HTTP-уровеня
+
+
+def test_buy_endpoint_returns_201_with_position(
+    auth_client_a, funded_user, latest_snapshot_with_btc
+):
+    """POST /portfolio/buy/ - happy-path: 201 с данными созданной позиции."""
+    response = auth_client_a.post(
+        "/api/v1/portfolio/buy/",
+        {"symbol": "BTC", "amount": "0.5"},
+        format="json",
+    )
+
+    assert response.status_code == 201
+    assert response.data["symbol"] == "BTC"
+    assert Decimal(response.data["amount"]) == Decimal("0.5")
+    assert Decimal(response.data["buy_price"]) == Decimal("100")
+
+
+@pytest.mark.parametrize(
+    "method, url",
+    [
+        ("get", "/api/v1/portfolio/"),
+        ("get", "/api/v1/portfolio/history/"),
+        ("post", "/api/v1/portfolio/buy/"),
+        ("post", "/api/v1/portfolio/positions/1/sell/"),
+    ],
+)
+def test_portfolio_endpoints_require_auth(method, url):
+    """Без токена все portfolio-эндпоинты отвечают 401."""
+    client = APIClient()
+    response = getattr(client, method)(url, {}, format="json")
+    assert response.status_code == 401
+
+
+def test_sell_endpoint_rejects_other_users_position(auth_client_b, btc_position):
+    """IDOR: другой залогиненный юзер не может продать чужую позицию (404)."""
+    response = auth_client_b.post(
+        f"/api/v1/portfolio/positions/{btc_position.id}/sell/",
+        {"amount": "1"},
+        format="json",
+    )
+
+    assert response.status_code == 404
+
+
+# Cache invalidation
+
+
+@pytest.mark.django_db(transaction=True)
+def test_buy_coin_invalidates_portfolio_cache(funded_user, latest_snapshot_with_btc):
+    """После успешного buy_coin кеш портфеля должен быть очищен."""
+    key = portfolio_cache_key(funded_user.id)
+    cache.set(key, "old-data")
+
+    buy_coin(funded_user, "BTC", Decimal("1"))
+
+    assert cache.get(key) is None
