@@ -323,7 +323,7 @@ def test_portfolio_history_excludes_snapshots_before_purchase(
     assert history[0]["portfolio_value"] == Decimal("120")
 
 
-# Тесты HTTP-уровеня
+# --- HTTP-уровень ---
 
 
 def test_buy_endpoint_returns_201_with_position(
@@ -369,7 +369,7 @@ def test_sell_endpoint_rejects_other_users_position(auth_client_b, btc_position)
     assert response.status_code == 404
 
 
-# Cache invalidation
+# --- Cache invalidation ---
 
 
 @pytest.mark.django_db(transaction=True)

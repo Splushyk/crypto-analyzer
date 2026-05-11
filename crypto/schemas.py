@@ -43,6 +43,9 @@ task_accepted_response = inline_serializer(
 )
 
 
+# --- Coins ---
+
+
 coin_history_schema = extend_schema(
     summary="История цен монет",
     description=(
@@ -55,6 +58,9 @@ coin_history_schema = extend_schema(
     },
     tags=["coins"],
 )
+
+
+# --- Watchlist ---
 
 
 watchlist_get_schema = extend_schema(
@@ -149,6 +155,9 @@ watchlist_delete_schema = extend_schema(
     },
     tags=["watchlist"],
 )
+
+
+# --- Portfolio ---
 
 
 buy_coin_schema = extend_schema(
@@ -299,6 +308,9 @@ sell_position_schema = extend_schema(
 )
 
 
+# --- Snapshots ---
+
+
 snapshot_viewset_schema = extend_schema_view(
     list=extend_schema(
         summary="Список снимков рынка",
@@ -322,6 +334,9 @@ snapshot_viewset_schema = extend_schema_view(
         tags=["snapshots"],
     ),
 )
+
+
+# --- Analytics ---
 
 
 market_stats_schema = extend_schema(
@@ -396,6 +411,9 @@ volume_leaders_schema = extend_schema(
     },
     tags=["analytics"],
 )
+
+
+# --- Tasks ---
 
 
 task_status_schema = extend_schema(

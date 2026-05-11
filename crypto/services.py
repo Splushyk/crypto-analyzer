@@ -43,6 +43,9 @@ CENT = Decimal("0.01")
 MONEY_FIELD = DecimalField(max_digits=22, decimal_places=2)
 
 
+# --- Snapshot price helpers & analytics ---
+
+
 def _get_latest_snapshot_prices() -> QuerySet[CoinPrice]:
     """
     Queryset цен последнего снимка рынка. Если снимков ещё нет — возвращает
@@ -113,6 +116,9 @@ def get_volume_leaders() -> dict[str, QuerySet[CoinPrice, CoinPrice]] | None:
     return {
         "leaders": prices.order_by("-volume")[:10],
     }
+
+
+# --- Watchlist ---
 
 
 def get_user_watchlist(user: User) -> QuerySet[WatchlistItem, WatchlistItem]:
@@ -198,6 +204,9 @@ def add_to_watchlist(user: User, symbol: str) -> WatchlistItem:
 
     invalidate_watchlist(user.id)
     return item
+
+
+# --- Portfolio ---
 
 
 @transaction.atomic

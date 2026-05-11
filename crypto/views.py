@@ -77,6 +77,8 @@ from crypto.services import (
 )
 from crypto.tasks import fetch_snapshot_task
 
+# --- Snapshots ---
+
 
 @snapshot_viewset_schema
 class SnapshotViewSet(viewsets.ReadOnlyModelViewSet):
@@ -89,6 +91,9 @@ class SnapshotViewSet(viewsets.ReadOnlyModelViewSet):
     @method_decorator(cache_page(60 * 60))
     def retrieve(self, request, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
+
+
+# --- Coins ---
 
 
 @coin_history_schema
@@ -119,6 +124,9 @@ class CoinPriceHistoryView(generics.ListAPIView):
         response = super().list(request, *args, **kwargs)
         cache.set(key, response.data, COIN_HISTORY_CACHE_TTL)
         return response
+
+
+# --- Watchlist ---
 
 
 class WatchlistView(APIView):
@@ -156,6 +164,9 @@ class WatchlistDetailView(APIView):
         if not remove_from_watchlist(request.user, symbol):
             raise WatchlistItemNotFoundError()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# --- Portfolio ---
 
 
 @buy_coin_schema
@@ -226,6 +237,9 @@ class SellPositionView(APIView):
         return Response(SellResultSerializer(result).data)
 
 
+# --- Analytics ---
+
+
 @market_stats_schema
 class MarketStatsView(APIView):
     def get(self, request: Request, **kwargs) -> Response:
@@ -255,6 +269,9 @@ class VolumeLeadersView(APIView):
         if data is None:
             raise NoDataForAnalysisError()
         return Response(data)
+
+
+# --- Tasks ---
 
 
 @fetch_snapshot_schema

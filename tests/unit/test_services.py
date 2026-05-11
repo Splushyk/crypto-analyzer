@@ -15,7 +15,7 @@ from crypto.services import (
     validate_symbol,
 )
 
-# Тесты validate_symbol
+# --- Тесты validate_symbol ---
 
 
 def test_validate_symbol_found(mock_api_symbol_found):
@@ -39,7 +39,7 @@ def test_validate_symbol_case_insensitive(mock_api_symbol_found):
     assert result == ("BTC", "Bitcoin")
 
 
-# Тесты add_to_watchlist
+# --- Тесты add_to_watchlist ---
 
 
 def test_add_to_watchlist_success(user_a, mock_api_symbol_found):
@@ -69,7 +69,7 @@ def test_add_to_watchlist_duplicate(user_a, mock_api_symbol_found):
         add_to_watchlist(user_a, "btc")  # второй раз — ошибка
 
 
-# Тесты get_user_watchlist
+# --- Тесты get_user_watchlist ---
 
 
 def test_get_user_watchlist_returns_own_items(user_a, user_b, mock_api_symbol_found):
@@ -88,7 +88,7 @@ def test_get_user_watchlist_empty(user_a):
     assert result.count() == 0
 
 
-# Тесты remove_from_watchlist
+# --- Тесты remove_from_watchlist ---
 
 
 def test_remove_from_watchlist_success(user_a, mock_api_symbol_found):
