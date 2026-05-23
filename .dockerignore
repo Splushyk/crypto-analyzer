@@ -1,0 +1,56 @@
+# VCS
+.git/
+.gitignore
+.gitattributes
+
+# Python окружения
+.venv/
+venv/
+env/
+ENV/
+
+# Кэши Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Кэши инструментов
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+htmlcov/
+
+# Секреты
+.env
+.env.*
+*.pem
+*.key
+
+# IDE и ОС
+.idea/
+.vscode/
+.DS_Store
+*.swp
+
+# Docker meta
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+
+# Локальные данные / артефакты
+db.sqlite3
+crypto_report.*
+celerybeat-schedule
+celerybeat-schedule.db
+staticfiles/
+media/
+
+# pyenv
+.python-version
+
+# Tests (не нужны в прод-образе)
+tests/
