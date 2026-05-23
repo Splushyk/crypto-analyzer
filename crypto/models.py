@@ -14,6 +14,9 @@ class Snapshot(models.Model):
     class Meta:
         verbose_name = "Снимок рынка"
         verbose_name_plural = "Снимки рынка"
+        indexes = [
+            models.Index(fields=["-created_at"], name="snapshot_created_at_desc_idx"),
+        ]
 
     def __str__(self):
         local_time = timezone.localtime(self.created_at)
@@ -42,6 +45,11 @@ class CoinPrice(models.Model):
     class Meta:
         verbose_name = "Цена монеты"
         verbose_name_plural = "Цены монет"
+        indexes = [
+            models.Index(
+                fields=["snapshot", "symbol"], name="coinprice_snapshot_symbol_idx"
+            ),
+        ]
 
     def __str__(self):
         return f"{self.symbol} - {self.price}"
