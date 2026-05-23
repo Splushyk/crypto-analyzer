@@ -1,4 +1,5 @@
 # Crypto Analyzer
+![CI](https://github.com/Splushyk/crypto-analyzer/actions/workflows/ci.yml/badge.svg?branch=main)
 
 Django REST API для сбора, хранения и анализа рыночных данных с **CoinGecko** и **CoinMarketCap**. Включает legacy CLI на Typer.
 
@@ -102,7 +103,7 @@ make migrate    # применить миграции
 make rebuild    # пересобрать образы и перезапустить контейнеры
 make lint       # запустить линтеры (pre-commit)
 make format     # отформатировать код (ruff format)
-make test       # запустить тесты (compose должен быть up — нужна БД)
+make test       # запустить тесты (Postgres поднимается через testcontainers)
 ```
 
 **Состав сервисов в `docker-compose.yml`:**
@@ -296,6 +297,8 @@ no-op'ами. Cache-aside эндпоинты делают fallback на БД, wa
 * **Celery-задачи**: Интеграционные тесты в eager-режиме (провайдер замокирован): успешное выполнение задачи, retry на сетевой ошибке, контракт API-эндпоинта запуска задачи и **rollback при сбое INSERT в `coin_prices`** (проверка атомарности снимка).
 * **Портфель и баланс**: Интеграционные тесты сигнала `Balance` на регистрации, buy/sell операций с проверкой rollback-сценариев (нехватка средств, продажа сверх остатка, чужая позиция, монеты нет в снимке), аналитики через `annotate+Subquery` и динамики стоимости по снимкам.
 * **Кеш**: Тесты используют `django-redis` через `fakeredis` (in-memory имитация Redis) — `delete_pattern` и поведение, идентичное проду, без зависимости от живого Redis-сервера. Между тестами кеш чистится autouse-фикстурой.
+* **БД**: Postgres поднимается одноразовым контейнером через `testcontainers` 
+  (фикстура `django_db_modify_db_settings` в `tests/conftest.py`). Контейнер создаётся один раз на сессию pytest и убивается после завершения. Локально требуется только установленный Docker - `docker-compose` держать не нужно.
 
 ### Запуск тестов:
 ```bash
@@ -307,7 +310,23 @@ uv run pytest -m unit
 uv run pytest -m integration
 ```
 
-> **Важно:** тесты подключаются к БД через проброс порта `127.0.0.1:5432` (`config/settings/test.py` переопределяет `HOST`), поэтому перед запуском compose должен быть поднят (`make up`). При запуске без Docker требуется локальный Postgres на 5432.
+> **Требования:** установленный Docker (testcontainers сам поднимет Postgres). 
+> Держать `make up` не требуется - тестовая БД полностью изолирована от compose-стека.
+
+## CI
+
+Continuous Integration настроен через GitHub Actions — конфигурация в `.github/workflows/ci.yml`. Пайплайн запускается на каждый push и pull request и состоит из шагов:
+
+* `ruff check` — линт
+* `ruff format --check` — проверка форматирования
+* `mypy` — статическая проверка типов
+* `makemigrations --check --dry-run` — проверка, что для всех изменений моделей сгенерированы миграции
+* `pytest -m unit` — юнит-тесты
+* `pytest -m integration` — интеграционные тесты (Postgres через testcontainers)
+
+Те же ruff и mypy запускаются локально через [`pre-commit`](.pre-commit-config.yaml) перед каждым коммитом — CI дублирует их на сервере как страховку от случайных `--no-verify` и обязательный гейт для PR.
+
+Merge в `main` защищён Branch Protection Rule: PR нельзя смержить, пока пайплайн не зелёный.
 
 ## Разработка
 
