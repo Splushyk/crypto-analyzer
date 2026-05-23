@@ -76,6 +76,23 @@ DATABASES = {
     }
 }
 
+# Redis cache (отдельная БД от Celery broker)
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": env("REDIS_CACHE_URL", default="redis://localhost:6379/1"),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            # При недоступности Redis cache.get/set тихо возвращают None / no-op
+            # вместо исключения - cache-aside корректно деградирует на БД.
+            "IGNORE_EXCEPTIONS": True,
+        },
+    }
+}
+
+# Подавленные исключения Redis логируются через django_redis.cache (см. LOGGING).
+DJANGO_REDIS_LOG_IGNORED_EXCEPTIONS = True
+
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",  # noqa: E501
@@ -158,4 +175,22 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "REST API для анализа рынка криптовалют",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+}
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "stderr": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "loggers": {
+        # Подавленные ошибки Redis (см. CACHES.OPTIONS.IGNORE_EXCEPTIONS).
+        "django_redis.cache": {
+            "handlers": ["stderr"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+    },
 }

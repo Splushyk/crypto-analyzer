@@ -1,9 +1,23 @@
 import os
 
 from celery import shared_task
+from django.core.cache import cache
 from requests.exceptions import RequestException
 
+from crypto.cache import (
+    ANALYTICS_CACHE_TTL,
+    CACHE_KEY_MARKET_STATS,
+    CACHE_KEY_TOP_MOVERS,
+    CACHE_KEY_VOLUME_LEADERS,
+    invalidate_coin_history,
+)
 from crypto.models import CoinPrice, Snapshot
+from crypto.serializers import (
+    MarketStatsSerializer,
+    TopMoversSerializer,
+    VolumeLeadersSerializer,
+)
+from crypto.services import get_market_stats, get_top_movers, get_volume_leaders
 from src.analyzer import CryptoAnalyzer
 from src.api_client import ApiClient
 from src.parsers import CMCParser, GeckoParser
@@ -50,6 +64,33 @@ def _save_snapshot(coins, total_cap):
     return snapshot.id
 
 
+def _cache_analytics() -> None:
+    """Пересчитывает аналитику по последнему снимку и кладёт в кеш."""
+    stats = get_market_stats()
+    if stats is not None:
+        cache.set(
+            CACHE_KEY_MARKET_STATS,
+            MarketStatsSerializer(stats).data,
+            ANALYTICS_CACHE_TTL,
+        )
+
+    movers = get_top_movers()
+    if movers is not None:
+        cache.set(
+            CACHE_KEY_TOP_MOVERS,
+            TopMoversSerializer(movers).data,
+            ANALYTICS_CACHE_TTL,
+        )
+
+    leaders = get_volume_leaders()
+    if leaders is not None:
+        cache.set(
+            CACHE_KEY_VOLUME_LEADERS,
+            VolumeLeadersSerializer(leaders).data,
+            ANALYTICS_CACHE_TTL,
+        )
+
+
 @shared_task(
     autoretry_for=(RequestException,),
     retry_backoff=True,
@@ -65,4 +106,6 @@ def fetch_snapshot_task(source="coingecko"):
     coins = provider.get_coins()
     total_cap = CryptoAnalyzer(coins).analyze_data()["total_market_cap"]
     snapshot_id = _save_snapshot(coins, total_cap)
+    invalidate_coin_history()
+    _cache_analytics()
     return snapshot_id

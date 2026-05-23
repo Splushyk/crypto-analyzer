@@ -46,6 +46,7 @@ cp .env.example .env  # затем заполнить значения
 | `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` | Параметры подключения к Postgres |
 | `CELERY_BROKER_URL` | URL Redis (по умолчанию `redis://localhost:6379/0`) |
 | `CELERY_RESULT_BACKEND` | URL Redis для результатов |
+| `REDIS_CACHE_URL` | URL Redis для cache backend (по умолчанию `redis://localhost:6379/1`) |
 | `CRYPTO_PROVIDER` | `coingecko` или `cmc` (по умолчанию `coingecko`) |
 | `CMC_API_KEY` | API-ключ CoinMarketCap (нужен только при `CRYPTO_PROVIDER=cmc`) |
 
@@ -108,7 +109,7 @@ make test       # запустить тесты (compose должен быть u
 | Сервис | Образ | Назначение |
 | --- | --- | --- |
 | `db` | `postgres:18` | Реляционная БД, данные сохраняются в named volume `pgdata` |
-| `redis` | `redis:8-alpine` | Брокер и result backend для Celery |
+| `redis` | `redis:8-alpine` | Брокер/result backend Celery (БД 0) и cache backend Django (БД 1) |
 | `web` | собирается из `Dockerfile` | Django + gunicorn (доступен только внутри docker-сети) |
 | `celery-worker` | тот же образ | Воркер Celery |
 | `celery-beat` | тот же образ | Планировщик задач Celery |
@@ -189,7 +190,7 @@ Access TTL — 5 минут, refresh — 1 день, refresh-токены рот
 | Авторизованный | 100 запросов / минуту |
 | Суперпользователь | 1000 запросов / минуту |
 
-При превышении — `429 Too Many Requests`.
+При превышении — `429 Too Many Requests`. Счётчики хранятся в Redis — лимиты общие для всех воркеров gunicorn.
 
 **Пагинация:**
 * По умолчанию — `PageNumberPagination`, `page_size=10` (параметры: `?page=N`).
@@ -244,6 +245,30 @@ uv run celery -A config worker -l INFO
 uv run celery -A config beat -l INFO
 ```
 
+## Кеширование
+
+Кеш-бэкенд — Redis (БД `1`, отдельная от Celery broker на БД `0`). Подключение через `django-redis`. URL — переменная `REDIS_CACHE_URL`.
+
+Используются разные стратегии в зависимости от характера данных:
+
+| Эндпоинт | Стратегия | TTL | Инвалидация |
+| --- | --- | --- | --- |
+| `/api/v1/analytics/market-stats/` | proactive (Celery) + cache-aside fallback | 70 мин | по TTL |
+| `/api/v1/analytics/top-movers/` | proactive (Celery) + cache-aside fallback | 70 мин | по TTL |
+| `/api/v1/analytics/volume-leaders/` | proactive (Celery) + cache-aside fallback | 70 мин | по TTL |
+| `/api/v1/snapshots/{id}/` | `@cache_page` | 60 мин | по TTL (снимок неизменен) |
+| `/api/v1/coins/?symbol=...` | low-level + `delete_pattern` | 70 мин | при сохранении нового снимка |
+| `/api/v1/watchlist/` | per-user low-level | 5 мин | при add/remove (точечная) |
+
+**Проактивный кеш аналитики:** `fetch_snapshot_task` после сохранения снимка пересчитывает `market_stats`, `top_movers`, `volume_leaders` и пишет в Redis. View читают готовые данные. При cache miss (холодный старт, до первого запуска Beat) — fallback на расчёт из БД.
+
+Cache-инфраструктура (ключи, TTL, хелпер `cache_aside`, функции `invalidate_*`) изолирована в `crypto/cache.py`.
+
+**Устойчивость к падению Redis:** включён `IGNORE_EXCEPTIONS = True` — при 
+недоступности Redis `cache.get` возвращает `None`, остальные операции становятся 
+no-op'ами. Cache-aside эндпоинты делают fallback на БД, watchlist mutations 
+отрабатывают, throttling временно не применяет лимиты. Подавленные исключения логируются через `django_redis.cache` (`DJANGO_REDIS_LOG_IGNORED_EXCEPTIONS = True` + блок `LOGGING`).
+
 ## Тестирование
 Используется разделение на Unit-тесты (логика) и Integration-тесты (работа с БД через Django ORM и REST API через тестовый `APIClient`).
 
@@ -256,6 +281,7 @@ uv run celery -A config beat -l INFO
 * **Watchlist API**: Интеграционные тесты CRUD-операций, JWT-аутентификации и изоляции данных между пользователями.
 * **REST API и ORM**: Интеграционные тесты snapshots, coins и analytics эндпоинтов, включая регрессионные проверки количества SQL-запросов через `django_assert_num_queries`.
 * **Celery-задачи**: Интеграционные тесты в eager-режиме (провайдер замокирован): успешное выполнение задачи, retry на сетевой ошибке и контракт API-эндпоинта запуска задачи.
+* **Кеш**: Тесты используют `django-redis` через `fakeredis` (in-memory имитация Redis) — `delete_pattern` и поведение, идентичное проду, без зависимости от живого Redis-сервера. Между тестами кеш чистится autouse-фикстурой.
 
 ### Запуск тестов:
 ```bash

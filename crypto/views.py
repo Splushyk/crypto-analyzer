@@ -1,4 +1,7 @@
 from celery.result import AsyncResult
+from django.core.cache import cache
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, status, viewsets
 from rest_framework.filters import OrderingFilter
@@ -7,6 +10,16 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from crypto.cache import (
+    CACHE_KEY_MARKET_STATS,
+    CACHE_KEY_PREFIX_COIN_HISTORY,
+    CACHE_KEY_TOP_MOVERS,
+    CACHE_KEY_VOLUME_LEADERS,
+    COIN_HISTORY_CACHE_TTL,
+    WATCHLIST_CACHE_TTL,
+    cache_aside,
+    watchlist_cache_key,
+)
 from crypto.exceptions import (
     NoDataForAnalysisError,
     WatchlistItemNotFoundError,
@@ -56,6 +69,10 @@ class SnapshotViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     ordering_fields = ["created_at", "total_market_cap"]
 
+    @method_decorator(cache_page(60 * 60))
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
 
 @coin_history_schema
 class CoinPriceHistoryView(generics.ListAPIView):
@@ -65,6 +82,27 @@ class CoinPriceHistoryView(generics.ListAPIView):
     queryset = CoinPrice.objects.all()
     pagination_class = CoinPriceCursorPagination
 
+    def list(self, request: Request, *args, **kwargs) -> Response:
+        symbol = request.query_params.get("symbol")
+        if not symbol:
+            return super().list(request, *args, **kwargs)
+
+        cursor = request.query_params.get("cursor", "")
+        min_price = request.query_params.get("min_price", "")
+        max_price = request.query_params.get("max_price", "")
+        key = (
+            f"{CACHE_KEY_PREFIX_COIN_HISTORY}"
+            f"_{symbol.upper()}_{cursor}_{min_price}_{max_price}"
+        )
+
+        cached = cache.get(key)
+        if cached is not None:
+            return Response(cached)
+
+        response = super().list(request, *args, **kwargs)
+        cache.set(key, response.data, COIN_HISTORY_CACHE_TTL)
+        return response
+
 
 class WatchlistView(APIView):
     permission_classes = [IsAuthenticated]
@@ -72,9 +110,15 @@ class WatchlistView(APIView):
     @watchlist_get_schema
     def get(self, request: Request, **kwargs) -> Response:
         assert request.user.is_authenticated
-        user_watchlist = get_user_watchlist(request.user)
-        serializer = WatchlistSerializer(user_watchlist, many=True)
-        return Response(serializer.data)
+        user = request.user
+        data = cache_aside(
+            watchlist_cache_key(user.id),
+            lambda: get_user_watchlist(user),
+            WatchlistSerializer,
+            ttl=WATCHLIST_CACHE_TTL,
+            many=True,
+        )
+        return Response(data)
 
     @watchlist_post_schema
     def post(self, request: Request, **kwargs) -> Response:
@@ -100,31 +144,32 @@ class WatchlistDetailView(APIView):
 @market_stats_schema
 class MarketStatsView(APIView):
     def get(self, request: Request, **kwargs) -> Response:
-        stats = get_market_stats()
-        if stats is None:
+        data = cache_aside(
+            CACHE_KEY_MARKET_STATS, get_market_stats, MarketStatsSerializer
+        )
+        if data is None:
             raise NoDataForAnalysisError()
-        serializer = MarketStatsSerializer(stats)
-        return Response(serializer.data)
+        return Response(data)
 
 
 @top_movers_schema
 class TopMoversView(APIView):
     def get(self, request: Request, **kwargs) -> Response:
-        tops = get_top_movers()
-        if tops is None:
+        data = cache_aside(CACHE_KEY_TOP_MOVERS, get_top_movers, TopMoversSerializer)
+        if data is None:
             raise NoDataForAnalysisError()
-        serializer = TopMoversSerializer(tops)
-        return Response(serializer.data)
+        return Response(data)
 
 
 @volume_leaders_schema
 class VolumeLeadersView(APIView):
     def get(self, request: Request, **kwargs) -> Response:
-        leaders = get_volume_leaders()
-        if leaders is None:
+        data = cache_aside(
+            CACHE_KEY_VOLUME_LEADERS, get_volume_leaders, VolumeLeadersSerializer
+        )
+        if data is None:
             raise NoDataForAnalysisError()
-        serializer = VolumeLeadersSerializer(leaders)
-        return Response(serializer.data)
+        return Response(data)
 
 
 @fetch_snapshot_schema

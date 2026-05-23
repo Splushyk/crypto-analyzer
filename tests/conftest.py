@@ -1,8 +1,15 @@
 import pytest
 from django.contrib.auth.models import User
+from django.core.cache import cache
 
 from src.models import Cryptocurrency
 from src.storage import SqliteStorage
+
+
+@pytest.fixture(autouse=True)
+def _clear_cache():
+    """Очищает кеш перед каждым тестом — изоляция между тестами."""
+    cache.clear()
 
 
 def pytest_collection_modifyitems(items):
