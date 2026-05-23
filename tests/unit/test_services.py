@@ -104,7 +104,3 @@ def test_remove_from_watchlist_not_found(user_a):
     """Удаление несуществующей монеты — возвращает False."""
     result = remove_from_watchlist(user_a, "BTC")
     assert result is False
-
-
-def test_intentional_ci_check():
-    assert False, "verify CI catches failing tests"
