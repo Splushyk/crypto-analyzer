@@ -25,4 +25,3 @@ CACHES = {
 }
 
 REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []  # noqa: F405
-DATABASES["default"]["HOST"] = "127.0.0.1"  # noqa: F405

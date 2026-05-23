@@ -1,9 +1,35 @@
 import pytest
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.cache import cache
+from testcontainers.postgres import PostgresContainer
 
 from src.models import Cryptocurrency
 from src.storage import SqliteStorage
+
+
+@pytest.fixture(scope="session")
+def django_db_modify_db_settings():
+    """
+    Поднимает Postgres-контейнер и подменяет параметры подключения в settings.DATABASES.
+    django_db_modify_db_settings — официальный хук pytest-django: вызывается
+    ПОСЛЕ загрузки settings, но ДО создания тестовой БД.
+    scope="session" — контейнер живёт одну сессию pytest.
+    """
+    container = PostgresContainer("postgres:18")
+    container.start()
+
+    settings.DATABASES["default"]["HOST"] = (
+        container.get_container_host_ip() or "127.0.0.1"
+    )
+    settings.DATABASES["default"]["PORT"] = str(container.get_exposed_port(5432))
+    settings.DATABASES["default"]["NAME"] = container.dbname
+    settings.DATABASES["default"]["USER"] = container.username
+    settings.DATABASES["default"]["PASSWORD"] = container.password
+
+    yield
+
+    container.stop()
 
 
 @pytest.fixture(autouse=True)
