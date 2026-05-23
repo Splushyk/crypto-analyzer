@@ -56,5 +56,5 @@ lint:  ## Запустить все линтеры (ruff, mypy, etc.) через
 format:  ## Отформатировать код (ruff format)
 	uv run ruff format .
 
-test:  ## Запустить тесты (compose должен быть up — для доступа к БД)
+test:  ## Запустить тесты (Postgres поднимается через testcontainers)
 	uv run pytest
