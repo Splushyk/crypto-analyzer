@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from crypto.models import CoinPrice, Snapshot, WatchlistItem
+from crypto.models import CoinPrice, Portfolio, Snapshot, WatchlistItem
 
 
 class CoinPriceSerializer(serializers.ModelSerializer):
@@ -41,6 +41,74 @@ class TopMoversSerializer(serializers.Serializer):
 
 class VolumeLeadersSerializer(serializers.Serializer):
     leaders = CoinPriceSerializer(many=True, read_only=True)
+
+
+class PortfolioSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Portfolio
+        fields = ["id", "symbol", "amount", "buy_price", "bought_at"]
+
+
+class PortfolioPositionWithMetricsSerializer(serializers.ModelSerializer):
+    current_price = serializers.DecimalField(
+        max_digits=20, decimal_places=6, allow_null=True
+    )
+    current_value = serializers.DecimalField(
+        max_digits=22, decimal_places=2, allow_null=True
+    )
+    pnl = serializers.DecimalField(max_digits=22, decimal_places=2, allow_null=True)
+
+    class Meta:
+        model = Portfolio
+        fields = [
+            "id",
+            "symbol",
+            "amount",
+            "buy_price",
+            "bought_at",
+            "current_price",
+            "current_value",
+            "pnl",
+        ]
+
+
+class UserPortfolioSerializer(serializers.Serializer):
+    total_value = serializers.DecimalField(max_digits=22, decimal_places=2)
+    total_pnl = serializers.DecimalField(max_digits=22, decimal_places=2)
+    positions = PortfolioPositionWithMetricsSerializer(many=True)
+
+
+class PortfolioHistoryEntrySerializer(serializers.Serializer):
+    snapshot_id = serializers.IntegerField()
+    created_at = serializers.DateTimeField()
+    portfolio_value = serializers.DecimalField(max_digits=22, decimal_places=2)
+
+
+class BuyCoinSerializer(serializers.Serializer):
+    symbol = serializers.CharField(max_length=20)
+    amount = serializers.DecimalField(max_digits=20, decimal_places=8)
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Amount must be positive.")
+        return value
+
+
+class SellPositionSerializer(serializers.Serializer):
+    amount = serializers.DecimalField(max_digits=20, decimal_places=8)
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Amount must be positive.")
+        return value
+
+
+class SellResultSerializer(serializers.Serializer):
+    position_id = serializers.IntegerField(allow_null=True)
+    remaining_amount = serializers.DecimalField(max_digits=20, decimal_places=8)
+    sale_price = serializers.DecimalField(max_digits=20, decimal_places=6)
+    proceeds = serializers.DecimalField(max_digits=20, decimal_places=2)
+    new_balance = serializers.DecimalField(max_digits=20, decimal_places=2)
 
 
 class FetchSnapshotSerializer(serializers.Serializer):

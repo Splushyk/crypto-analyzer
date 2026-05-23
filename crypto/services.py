@@ -5,15 +5,45 @@
 Не зависит от DRF — работает только с Django ORM и стандартной библиотекой.
 """
 
+from decimal import ROUND_HALF_UP, Decimal
+
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.db import IntegrityError
-from django.db.models import Avg, Max, Min, QuerySet, Sum
+from django.db import IntegrityError, transaction
+from django.db.models import (
+    Avg,
+    DecimalField,
+    ExpressionWrapper,
+    F,
+    Max,
+    Min,
+    OuterRef,
+    Prefetch,
+    QuerySet,
+    Subquery,
+    Sum,
+)
 
-from crypto.cache import invalidate_watchlist
-from crypto.exceptions import SymbolNotFoundOnExchangeError, WatchlistDuplicateError
-from crypto.models import CoinPrice, Snapshot, WatchlistItem
+from crypto.cache import (
+    invalidate_portfolio,
+    invalidate_watchlist,
+)
+from crypto.exceptions import (
+    CoinNotInLatestSnapshotError,
+    InsufficientFundsError,
+    InvalidSellAmountError,
+    PositionNotFoundError,
+    SymbolNotFoundOnExchangeError,
+    WatchlistDuplicateError,
+)
+from crypto.models import Balance, CoinPrice, Portfolio, Snapshot, WatchlistItem
 from src.api_client import ApiClient
+
+CENT = Decimal("0.01")
+MONEY_FIELD = DecimalField(max_digits=22, decimal_places=2)
+
+
+# --- Snapshot price helpers & analytics ---
 
 
 def _get_latest_snapshot_prices() -> QuerySet[CoinPrice]:
@@ -26,6 +56,16 @@ def _get_latest_snapshot_prices() -> QuerySet[CoinPrice]:
     if latest_snapshot is None:
         return CoinPrice.objects.none()
     return CoinPrice.objects.filter(snapshot=latest_snapshot)
+
+
+def _get_latest_price(symbol: str) -> Decimal | None:
+    """Цена монеты из последнего снимка или None, если её там нет."""
+    return (
+        _get_latest_snapshot_prices()
+        .filter(symbol=symbol)
+        .values_list("price", flat=True)
+        .first()
+    )
 
 
 def get_market_stats() -> dict[str, float] | None:
@@ -76,6 +116,9 @@ def get_volume_leaders() -> dict[str, QuerySet[CoinPrice, CoinPrice]] | None:
     return {
         "leaders": prices.order_by("-volume")[:10],
     }
+
+
+# --- Watchlist ---
 
 
 def get_user_watchlist(user: User) -> QuerySet[WatchlistItem, WatchlistItem]:
@@ -161,3 +204,164 @@ def add_to_watchlist(user: User, symbol: str) -> WatchlistItem:
 
     invalidate_watchlist(user.id)
     return item
+
+
+# --- Portfolio ---
+
+
+@transaction.atomic
+def buy_coin(user: User, symbol: str, amount: Decimal) -> Portfolio:
+    """
+    Покупка монеты по цене последнего снимка. Атомарно: списание + создание позиции
+    или ничего. Баланс блокируется на время транзакции для защиты от lost update
+    при параллельных покупках.
+    """
+    symbol = symbol.upper()
+
+    price = _get_latest_price(symbol)
+    if price is None:
+        raise CoinNotInLatestSnapshotError
+
+    balance = Balance.objects.select_for_update().get(user=user)
+    cost = (price * amount).quantize(CENT, rounding=ROUND_HALF_UP)
+    if balance.amount < cost:
+        raise InsufficientFundsError
+
+    balance.amount -= cost
+    balance.save()
+
+    position = Portfolio.objects.create(
+        user=user,
+        symbol=symbol,
+        amount=amount,
+        buy_price=price,
+    )
+    transaction.on_commit(lambda: invalidate_portfolio(user.id))
+    return position
+
+
+@transaction.atomic
+def sell_position(user: User, position_id: int, amount: Decimal) -> dict:
+    """
+    Продажа части позиции по текущей цене (последний снимок). Атомарно:
+    либо позиция уменьшается/удаляется + баланс пополняется, либо ничего.
+    Блокируется и позиция, и баланс - защита от параллельных продаж той же
+    позиции и от lost update на балансе.
+    """
+    balance = Balance.objects.select_for_update().get(user=user)
+
+    try:
+        position = Portfolio.objects.select_for_update().get(id=position_id, user=user)
+    except Portfolio.DoesNotExist:
+        raise PositionNotFoundError
+
+    if amount > position.amount:
+        raise InvalidSellAmountError
+
+    price = _get_latest_price(position.symbol)
+    if price is None:
+        raise CoinNotInLatestSnapshotError
+
+    proceeds = (price * amount).quantize(CENT, rounding=ROUND_HALF_UP)
+    balance.amount += proceeds
+    balance.save()
+
+    if amount == position.amount:
+        position.delete()
+        remaining_id = None
+        remaining_amount = Decimal("0")
+    else:
+        position.amount -= amount
+        position.save()
+        remaining_id = position.id
+        remaining_amount = position.amount
+
+    transaction.on_commit(lambda: invalidate_portfolio(user.id))
+
+    return {
+        "position_id": remaining_id,
+        "remaining_amount": remaining_amount,
+        "sale_price": price,
+        "proceeds": proceeds,
+        "new_balance": balance.amount,
+    }
+
+
+def get_user_portfolio(user: User) -> dict:
+    """
+    Позиции пользователя с текущей ценой и P&L + суммарные показатели.
+    Подсчёт через annotate + коррелированный Subquery -> один SQL,
+    избегаем N+1 на цене из последнего снимка для каждой позиции.
+    """
+    latest_snapshot_id = Snapshot.objects.order_by("-created_at").values("id")[:1]
+
+    current_price_sq = CoinPrice.objects.filter(
+        snapshot=Subquery(latest_snapshot_id),
+        symbol=OuterRef("symbol"),
+    ).values("price")[:1]
+
+    # output_field обязателен: иначе Django теряет точность Decimal на умножении.
+    positions = list(
+        Portfolio.objects.filter(user=user)
+        .annotate(current_price=Subquery(current_price_sq))
+        .annotate(
+            current_value=ExpressionWrapper(
+                F("current_price") * F("amount"), output_field=MONEY_FIELD
+            ),
+            pnl=ExpressionWrapper(
+                (F("current_price") - F("buy_price")) * F("amount"),
+                output_field=MONEY_FIELD,
+            ),
+        )
+    )
+
+    total_value = sum(
+        (p.current_value for p in positions if p.current_value is not None),
+        Decimal("0"),
+    )
+    total_pnl = sum(
+        (p.pnl for p in positions if p.pnl is not None),
+        Decimal("0"),
+    )
+
+    return {
+        "positions": positions,
+        "total_value": total_value,
+        "total_pnl": total_pnl,
+    }
+
+
+def get_portfolio_history(user: User) -> list[dict]:
+    """
+    Динамика стоимости портфеля по снимкам - по одной точке на снимок.
+    В каждый снимок учитываются только позиции, купленные до его даты.
+    """
+    positions = list(Portfolio.objects.filter(user=user))
+    if not positions:
+        return []
+
+    earliest_buy = min(p.bought_at for p in positions)
+    user_symbols = {p.symbol for p in positions}
+
+    relevant_prices = CoinPrice.objects.filter(symbol__in=user_symbols)
+    snapshots = (
+        Snapshot.objects.filter(created_at__gte=earliest_buy)
+        .prefetch_related(Prefetch("prices", queryset=relevant_prices))
+        .order_by("created_at")
+    )
+
+    history = []
+    for snap in snapshots:
+        prices_by_symbol = {cp.symbol: cp.price for cp in snap.prices.all()}
+        value = Decimal("0")
+        for p in positions:
+            if snap.created_at >= p.bought_at and p.symbol in prices_by_symbol:
+                value += prices_by_symbol[p.symbol] * p.amount
+        history.append(
+            {
+                "snapshot_id": snap.id,
+                "created_at": snap.created_at,
+                "portfolio_value": value,
+            }
+        )
+    return history

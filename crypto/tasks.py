@@ -2,6 +2,7 @@ import os
 
 from celery import shared_task
 from django.core.cache import cache
+from django.db import transaction
 from requests.exceptions import RequestException
 
 from crypto.cache import (
@@ -9,6 +10,7 @@ from crypto.cache import (
     CACHE_KEY_MARKET_STATS,
     CACHE_KEY_TOP_MOVERS,
     CACHE_KEY_VOLUME_LEADERS,
+    invalidate_all_portfolios,
     invalidate_coin_history,
 )
 from crypto.models import CoinPrice, Snapshot
@@ -105,7 +107,9 @@ def fetch_snapshot_task(source="coingecko"):
     provider = _build_provider(source)
     coins = provider.get_coins()
     total_cap = CryptoAnalyzer(coins).analyze_data()["total_market_cap"]
-    snapshot_id = _save_snapshot(coins, total_cap)
-    invalidate_coin_history()
-    _cache_analytics()
+    with transaction.atomic():
+        snapshot_id = _save_snapshot(coins, total_cap)
+        transaction.on_commit(invalidate_coin_history)
+        transaction.on_commit(invalidate_all_portfolios)
+        transaction.on_commit(_cache_analytics)
     return snapshot_id

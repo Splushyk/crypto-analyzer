@@ -5,6 +5,7 @@
 """
 
 import pytest
+from django.db.utils import DatabaseError
 from requests.exceptions import ConnectionError
 from rest_framework.test import APIClient
 
@@ -59,6 +60,34 @@ def test_fetch_snapshot_task_retries_on_api_error(mocker, sample_coin, settings)
     # API вызвался 3 раза (1 изначальная + 2 retry)
     assert mock_provider.get_coins.call_count == 3
     assert Snapshot.objects.count() == 1
+
+
+@pytest.mark.django_db(transaction=True)
+def test_fetch_snapshot_task_rolls_back_when_bulk_create_fails(
+    mocker, sample_coin, settings
+):
+    """
+    Если INSERT в coin_prices упал, частичные данные не должны остаться в БД.
+    transaction=True - без него pytest-обёртка маскирует факт rollback'а самой задачи.
+    """
+    # EAGER_PROPAGATES=True: исключение из задачи пробросится наружу.
+    settings.CELERY_TASK_EAGER_PROPAGATES = True
+
+    mock_provider = mocker.Mock()
+    mock_provider.get_coins.return_value = [sample_coin]
+    mocker.patch("crypto.tasks._build_provider", return_value=mock_provider)
+
+    # Падаем на втором INSERT (bulk_create).
+    mocker.patch(
+        "crypto.tasks.CoinPrice.objects.bulk_create",
+        side_effect=DatabaseError("simulated INSERT failure"),
+    )
+
+    with pytest.raises(DatabaseError):
+        fetch_snapshot_task.delay("coingecko")
+
+    assert Snapshot.objects.count() == 0
+    assert CoinPrice.objects.count() == 0
 
 
 @pytest.mark.django_db

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from crypto.models import CoinPrice, Snapshot, WatchlistItem
+from crypto.models import Balance, CoinPrice, Portfolio, Snapshot, WatchlistItem
 
 
 class CoinPriceInline(admin.TabularInline):
@@ -103,6 +103,27 @@ class WatchlistItemAdmin(admin.ModelAdmin):
     list_filter = ("user", "symbol", "added_at")
     search_fields = ("user__username", "symbol")
     readonly_fields = ("added_at",)
+
+
+@admin.register(Portfolio)
+class PortfolioAdmin(admin.ModelAdmin):
+    list_display = ("user", "symbol", "amount", "buy_price", "bought_at")
+    list_filter = ("symbol", "bought_at")
+    search_fields = ("user__username", "symbol")
+    readonly_fields = ("user", "symbol", "amount", "buy_price", "bought_at")
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(Balance)
+class BalanceAdmin(admin.ModelAdmin):
+    list_display = ("user", "amount")
+    search_fields = ("user__username",)
+    readonly_fields = ("user",)
+
+    def has_add_permission(self, request):
+        return False
 
 
 admin.site.site_header = "Панель управления Crypto Analyzer"  # Текст в синей шапке

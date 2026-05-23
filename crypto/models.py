@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
@@ -43,6 +45,51 @@ class CoinPrice(models.Model):
 
     def __str__(self):
         return f"{self.symbol} - {self.price}"
+
+
+class Portfolio(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="portfolio",
+        verbose_name="Пользователь",
+    )
+    symbol = models.CharField(max_length=20, db_index=True, verbose_name="Символ")
+    amount = models.DecimalField(
+        max_digits=20, decimal_places=8, verbose_name="Количество"
+    )
+    buy_price = models.DecimalField("Цена покупки ($)", max_digits=20, decimal_places=6)
+    bought_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата покупки")
+
+    class Meta:
+        verbose_name = "Позиция портфеля"
+        verbose_name_plural = "Позиции портфеля"
+        ordering = ["-bought_at"]
+
+    def __str__(self):
+        return f"{self.user.username}: {self.symbol} x {self.amount} @ {self.buy_price}"
+
+
+class Balance(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="balance",
+        verbose_name="Пользователь",
+    )
+    amount = models.DecimalField(
+        max_digits=20,
+        decimal_places=2,
+        default=Decimal("0"),
+        verbose_name="Баланс ($)",
+    )
+
+    class Meta:
+        verbose_name = "Баланс пользователя"
+        verbose_name_plural = "Балансы пользователей"
+
+    def __str__(self):
+        return f"{self.user.username}: ${self.amount}"
 
 
 class WatchlistItem(models.Model):

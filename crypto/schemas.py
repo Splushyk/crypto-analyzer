@@ -13,11 +13,17 @@ from rest_framework import serializers
 
 from crypto.serializers import (
     AddToWatchlistSerializer,
+    BuyCoinSerializer,
     CoinPriceSerializer,
     FetchSnapshotSerializer,
     MarketStatsSerializer,
+    PortfolioHistoryEntrySerializer,
+    PortfolioSerializer,
+    SellPositionSerializer,
+    SellResultSerializer,
     SnapshotSerializer,
     TopMoversSerializer,
+    UserPortfolioSerializer,
     VolumeLeadersSerializer,
     WatchlistSerializer,
 )
@@ -37,6 +43,9 @@ task_accepted_response = inline_serializer(
 )
 
 
+# --- Coins ---
+
+
 coin_history_schema = extend_schema(
     summary="История цен монет",
     description=(
@@ -49,6 +58,9 @@ coin_history_schema = extend_schema(
     },
     tags=["coins"],
 )
+
+
+# --- Watchlist ---
 
 
 watchlist_get_schema = extend_schema(
@@ -145,6 +157,160 @@ watchlist_delete_schema = extend_schema(
 )
 
 
+# --- Portfolio ---
+
+
+buy_coin_schema = extend_schema(
+    summary="Купить монету",
+    description=(
+        "Покупает монету по цене последнего снимка рынка. Списывает стоимость "
+        "с баланса пользователя и создаёт новую позицию в портфеле. Операция "
+        "атомарна: при ошибке (нехватка средств, монеты нет в снимке) "
+        "состояние БД не меняется."
+    ),
+    request=BuyCoinSerializer,
+    responses={
+        201: PortfolioSerializer,
+        400: OpenApiResponse(
+            response=error_response,
+            description="Монеты нет в снимке или недостаточно средств",
+            examples=[
+                OpenApiExample(
+                    "Монеты нет в снимке",
+                    value={
+                        "error": "Coin not present in the latest market snapshot.",
+                        "code": "coin_not_in_snapshot",
+                    },
+                    status_codes=["400"],
+                ),
+                OpenApiExample(
+                    "Недостаточно средств",
+                    value={
+                        "error": "Insufficient balance for this purchase.",
+                        "code": "insufficient_funds",
+                    },
+                    status_codes=["400"],
+                ),
+            ],
+        ),
+        401: OpenApiResponse(description="Требуется аутентификация"),
+    },
+    examples=[
+        OpenApiExample(
+            "Купить 0.5 BTC",
+            value={"symbol": "BTC", "amount": "0.5"},
+            request_only=True,
+        ),
+    ],
+    tags=["portfolio"],
+)
+
+
+portfolio_history_schema = extend_schema(
+    summary="Динамика стоимости портфеля по снимкам",
+    description=(
+        "Возвращает стоимость портфеля текущего пользователя на момент "
+        "каждого снимка рынка, начиная с самой ранней покупки. В каждый "
+        "снимок учитываются только позиции, купленные до его даты. "
+        "Если позиции не было в портфеле или её монеты не было в снимке - "
+        "она вкладывает 0."
+    ),
+    responses={
+        200: PortfolioHistoryEntrySerializer(many=True),
+        401: OpenApiResponse(description="Требуется аутентификация"),
+    },
+    tags=["portfolio"],
+)
+
+
+portfolio_schema = extend_schema(
+    summary="Портфель пользователя с P&L",
+    description=(
+        "Возвращает все позиции текущего пользователя с текущей ценой "
+        "(из последнего снимка) и P&L по каждой позиции, плюс суммарную "
+        "стоимость и суммарный P&L. Результат кешируется. Если монеты "
+        "позиции нет в последнем снимке — current_price/value/pnl будут null."
+    ),
+    responses={
+        200: UserPortfolioSerializer,
+        401: OpenApiResponse(description="Требуется аутентификация"),
+    },
+    tags=["portfolio"],
+)
+
+
+sell_position_schema = extend_schema(
+    summary="Продать монеты из позиции",
+    description=(
+        "Продаёт указанное количество монет из конкретной позиции портфеля "
+        "по текущей цене последнего снимка. Если продаётся весь объём — "
+        "позиция удаляется, иначе уменьшается. Выручка зачисляется на "
+        "баланс. Операция атомарна: при ошибке (нет позиции, чужая позиция, "
+        "объём больше остатка, монеты нет в снимке) состояние БД не меняется."
+    ),
+    request=SellPositionSerializer,
+    parameters=[
+        OpenApiParameter(
+            name="position_id",
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.PATH,
+            description="ID позиции в портфеле.",
+        ),
+    ],
+    responses={
+        200: SellResultSerializer,
+        400: OpenApiResponse(
+            response=error_response,
+            description="Объём больше остатка или монеты нет в снимке",
+            examples=[
+                OpenApiExample(
+                    "Объём больше остатка",
+                    value={
+                        "error": "Cannot sell more than the position holds.",
+                        "code": "invalid_sell_amount",
+                    },
+                    status_codes=["400"],
+                ),
+                OpenApiExample(
+                    "Монеты нет в снимке",
+                    value={
+                        "error": "Coin not present in the latest market snapshot.",
+                        "code": "coin_not_in_snapshot",
+                    },
+                    status_codes=["400"],
+                ),
+            ],
+        ),
+        401: OpenApiResponse(description="Требуется аутентификация"),
+        404: OpenApiResponse(
+            response=error_response,
+            description="Позиция не найдена или принадлежит другому пользователю",
+            examples=[
+                OpenApiExample(
+                    "Не найдено",
+                    value={
+                        "error": "Portfolio position not found.",
+                        "code": "position_not_found",
+                    },
+                    status_codes=["404"],
+                ),
+            ],
+        ),
+    },
+    examples=[
+        OpenApiExample(
+            "Продать 0.005 BTC из позиции",
+            value={"amount": "0.005"},
+            request_only=True,
+        ),
+    ],
+    tags=["portfolio"],
+)
+
+
+# --- Snapshots ---
+
+
 snapshot_viewset_schema = extend_schema_view(
     list=extend_schema(
         summary="Список снимков рынка",
@@ -168,6 +334,9 @@ snapshot_viewset_schema = extend_schema_view(
         tags=["snapshots"],
     ),
 )
+
+
+# --- Analytics ---
 
 
 market_stats_schema = extend_schema(
@@ -242,6 +411,9 @@ volume_leaders_schema = extend_schema(
     },
     tags=["analytics"],
 )
+
+
+# --- Tasks ---
 
 
 task_status_schema = extend_schema(

@@ -16,8 +16,11 @@ from crypto.cache import (
     CACHE_KEY_TOP_MOVERS,
     CACHE_KEY_VOLUME_LEADERS,
     COIN_HISTORY_CACHE_TTL,
+    PORTFOLIO_CACHE_TTL,
     WATCHLIST_CACHE_TTL,
     cache_aside,
+    portfolio_cache_key,
+    portfolio_history_cache_key,
     watchlist_cache_key,
 )
 from crypto.exceptions import (
@@ -29,9 +32,13 @@ from crypto.models import CoinPrice, Snapshot
 from crypto.pagination import CoinPriceCursorPagination, SnapshotPagination
 from crypto.permissions import IsAdminOrReadOnly
 from crypto.schemas import (
+    buy_coin_schema,
     coin_history_schema,
     fetch_snapshot_schema,
     market_stats_schema,
+    portfolio_history_schema,
+    portfolio_schema,
+    sell_position_schema,
     snapshot_viewset_schema,
     task_status_schema,
     top_movers_schema,
@@ -42,23 +49,35 @@ from crypto.schemas import (
 )
 from crypto.serializers import (
     AddToWatchlistSerializer,
+    BuyCoinSerializer,
     CoinPriceSerializer,
     FetchSnapshotSerializer,
     MarketStatsSerializer,
+    PortfolioHistoryEntrySerializer,
+    PortfolioSerializer,
+    SellPositionSerializer,
+    SellResultSerializer,
     SnapshotSerializer,
     TopMoversSerializer,
+    UserPortfolioSerializer,
     VolumeLeadersSerializer,
     WatchlistSerializer,
 )
 from crypto.services import (
     add_to_watchlist,
+    buy_coin,
     get_market_stats,
+    get_portfolio_history,
     get_top_movers,
+    get_user_portfolio,
     get_user_watchlist,
     get_volume_leaders,
     remove_from_watchlist,
+    sell_position,
 )
 from crypto.tasks import fetch_snapshot_task
+
+# --- Snapshots ---
 
 
 @snapshot_viewset_schema
@@ -72,6 +91,9 @@ class SnapshotViewSet(viewsets.ReadOnlyModelViewSet):
     @method_decorator(cache_page(60 * 60))
     def retrieve(self, request, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
+
+
+# --- Coins ---
 
 
 @coin_history_schema
@@ -102,6 +124,9 @@ class CoinPriceHistoryView(generics.ListAPIView):
         response = super().list(request, *args, **kwargs)
         cache.set(key, response.data, COIN_HISTORY_CACHE_TTL)
         return response
+
+
+# --- Watchlist ---
 
 
 class WatchlistView(APIView):
@@ -141,6 +166,80 @@ class WatchlistDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+# --- Portfolio ---
+
+
+@buy_coin_schema
+class BuyCoinView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, **kwargs) -> Response:
+        assert request.user.is_authenticated
+        serializer = BuyCoinSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        position = buy_coin(
+            user=request.user,
+            symbol=serializer.validated_data["symbol"],
+            amount=serializer.validated_data["amount"],
+        )
+        return Response(
+            PortfolioSerializer(position).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+@portfolio_schema
+class PortfolioView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request, **kwargs) -> Response:
+        assert request.user.is_authenticated
+        user = request.user
+        data = cache_aside(
+            portfolio_cache_key(user.id),
+            lambda: get_user_portfolio(user),
+            UserPortfolioSerializer,
+            ttl=PORTFOLIO_CACHE_TTL,
+        )
+        return Response(data)
+
+
+@portfolio_history_schema
+class PortfolioHistoryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request, **kwargs) -> Response:
+        assert request.user.is_authenticated
+        user = request.user
+        data = cache_aside(
+            portfolio_history_cache_key(user.id),
+            lambda: get_portfolio_history(user),
+            PortfolioHistoryEntrySerializer,
+            ttl=PORTFOLIO_CACHE_TTL,
+            many=True,
+        )
+        return Response(data or [])
+
+
+@sell_position_schema
+class SellPositionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, position_id: int, **kwargs) -> Response:
+        assert request.user.is_authenticated
+        serializer = SellPositionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = sell_position(
+            user=request.user,
+            position_id=position_id,
+            amount=serializer.validated_data["amount"],
+        )
+        return Response(SellResultSerializer(result).data)
+
+
+# --- Analytics ---
+
+
 @market_stats_schema
 class MarketStatsView(APIView):
     def get(self, request: Request, **kwargs) -> Response:
@@ -170,6 +269,9 @@ class VolumeLeadersView(APIView):
         if data is None:
             raise NoDataForAnalysisError()
         return Response(data)
+
+
+# --- Tasks ---
 
 
 @fetch_snapshot_schema

@@ -6,7 +6,7 @@
 
 from rest_framework.test import APIClient
 
-# Тесты аутентификации
+# --- Тесты аутентификации ---
 
 
 def test_watchlist_requires_auth():
@@ -27,7 +27,7 @@ def test_existing_endpoints_remain_public(snapshots):
     assert response.status_code == 200
 
 
-# Тесты CRUD
+# --- Тесты CRUD ---
 
 
 def test_add_coin_to_watchlist(auth_client_a, mock_api_symbol_found):
@@ -92,7 +92,7 @@ def test_delete_nonexistent_symbol(auth_client_a):
     }
 
 
-# Тест изоляции данных между пользователями
+# --- Тест изоляции данных между пользователями ---
 
 
 def test_user_isolation(auth_client_a, auth_client_b, mock_api_symbol_found):

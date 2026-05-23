@@ -10,7 +10,7 @@ import pytest
 from django.conf import settings
 from rest_framework.test import APIClient
 
-# Тесты snapshots
+# --- Тесты snapshots ---
 
 
 def test_snapshots_list_is_paginated(snapshots):
@@ -45,7 +45,7 @@ def test_snapshots_list_uses_prefetch_related(coins, django_assert_num_queries):
     assert response.status_code == 200
 
 
-# Тесты coin price history + filter
+# --- Тесты coin price history + filter ---
 
 
 def test_coin_price_history(coins):
@@ -94,7 +94,7 @@ def test_coin_price_filter_symbol_is_case_insensitive(coins):
     assert len(response.data["results"]) == 2
 
 
-# Тесты market-stats
+# --- Тесты market-stats ---
 
 
 def test_market_stats_returns_aggregates_for_latest_snapshot(analytics_snapshot):
@@ -124,7 +124,7 @@ def test_market_stats_returns_404_when_no_snapshots(db):
     }
 
 
-# Тесты top-movers
+# --- Тесты top-movers ---
 
 
 def test_top_movers_returns_sorted_gainers_and_losers(analytics_snapshot):
@@ -157,7 +157,7 @@ def test_top_movers_has_no_n_plus_one(analytics_snapshot, django_assert_num_quer
     assert response.status_code == 200
 
 
-# Тесты volume-leaders
+# --- Тесты volume-leaders ---
 
 
 def test_volume_leaders_returns_coins_desc_sorted(analytics_snapshot):
