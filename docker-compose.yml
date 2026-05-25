@@ -82,6 +82,22 @@ services:
       depends_on:
         - web
 
+    prometheus:
+      image: prom/prometheus:latest
+      volumes:
+        - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+        - prometheus_data:/prometheus
+      command:
+        - "--config.file=/etc/prometheus/prometheus.yml"
+        - "--storage.tsdb.path=/prometheus"
+        - "--storage.tsdb.retention.time=200h"
+        - "--web.enable-lifecycle"
+      ports:
+        - "127.0.0.1:9090:9090"
+      depends_on:
+        - web
+
 volumes:
   pgdata:
   staticfiles:
+  prometheus_data:
