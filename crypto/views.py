@@ -13,6 +13,8 @@ from rest_framework.views import APIView
 from crypto.cache import (
     CACHE_KEY_MARKET_STATS,
     CACHE_KEY_PREFIX_COIN_HISTORY,
+    CACHE_KEY_PREFIX_PORTFOLIO,
+    CACHE_KEY_PREFIX_WATCHLIST,
     CACHE_KEY_TOP_MOVERS,
     CACHE_KEY_VOLUME_LEADERS,
     COIN_HISTORY_CACHE_TTL,
@@ -142,6 +144,7 @@ class WatchlistView(APIView):
             WatchlistSerializer,
             ttl=WATCHLIST_CACHE_TTL,
             many=True,
+            key_prefix=CACHE_KEY_PREFIX_WATCHLIST,
         )
         return Response(data)
 
@@ -200,6 +203,7 @@ class PortfolioView(APIView):
             lambda: get_user_portfolio(user),
             UserPortfolioSerializer,
             ttl=PORTFOLIO_CACHE_TTL,
+            key_prefix=CACHE_KEY_PREFIX_PORTFOLIO,
         )
         return Response(data)
 
@@ -217,6 +221,7 @@ class PortfolioHistoryView(APIView):
             PortfolioHistoryEntrySerializer,
             ttl=PORTFOLIO_CACHE_TTL,
             many=True,
+            key_prefix=CACHE_KEY_PREFIX_PORTFOLIO,
         )
         return Response(data or [])
 
@@ -244,7 +249,10 @@ class SellPositionView(APIView):
 class MarketStatsView(APIView):
     def get(self, request: Request, **kwargs) -> Response:
         data = cache_aside(
-            CACHE_KEY_MARKET_STATS, get_market_stats, MarketStatsSerializer
+            CACHE_KEY_MARKET_STATS,
+            get_market_stats,
+            MarketStatsSerializer,
+            key_prefix=CACHE_KEY_MARKET_STATS,
         )
         if data is None:
             raise NoDataForAnalysisError()
@@ -254,7 +262,12 @@ class MarketStatsView(APIView):
 @top_movers_schema
 class TopMoversView(APIView):
     def get(self, request: Request, **kwargs) -> Response:
-        data = cache_aside(CACHE_KEY_TOP_MOVERS, get_top_movers, TopMoversSerializer)
+        data = cache_aside(
+            CACHE_KEY_TOP_MOVERS,
+            get_top_movers,
+            TopMoversSerializer,
+            key_prefix=CACHE_KEY_TOP_MOVERS,
+        )
         if data is None:
             raise NoDataForAnalysisError()
         return Response(data)
@@ -264,7 +277,10 @@ class TopMoversView(APIView):
 class VolumeLeadersView(APIView):
     def get(self, request: Request, **kwargs) -> Response:
         data = cache_aside(
-            CACHE_KEY_VOLUME_LEADERS, get_volume_leaders, VolumeLeadersSerializer
+            CACHE_KEY_VOLUME_LEADERS,
+            get_volume_leaders,
+            VolumeLeadersSerializer,
+            key_prefix=CACHE_KEY_VOLUME_LEADERS,
         )
         if data is None:
             raise NoDataForAnalysisError()
