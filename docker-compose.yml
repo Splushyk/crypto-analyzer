@@ -102,7 +102,7 @@ services:
         - web
 
     grafana:
-      image: grafana/grafana:latest
+      image: grafana/grafana:11.6.0
       environment:
         GF_SECURITY_ADMIN_USER: admin
         GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
