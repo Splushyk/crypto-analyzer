@@ -224,11 +224,11 @@ LOGGING = {
             "formatter": "json",
         },
         "logstash": {
-            "class": "logstash.TCPLogstashHandler",
+            "class": "logstash_async.handler.AsynchronousLogstashHandler",
             "host": "logstash",
             "port": 5000,
-            "version": 1,
-            "message_type": "django",
+            "database_path": None,
+            "formatter": "json",
         },
     },
     "loggers": {

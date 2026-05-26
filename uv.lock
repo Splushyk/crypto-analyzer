@@ -255,7 +255,7 @@ dependencies = [
     { name = "psycopg2-binary" },
     { name = "pygments" },
     { name = "python-dotenv" },
-    { name = "python-logstash" },
+    { name = "python-logstash-async" },
     { name = "requests" },
     { name = "rich" },
     { name = "shellingham" },
@@ -319,7 +319,7 @@ requires-dist = [
     { name = "psycopg2-binary", specifier = ">=2.9.11" },
     { name = "pygments", specifier = "==2.19.2" },
     { name = "python-dotenv", specifier = "==1.2.2" },
-    { name = "python-logstash", specifier = ">=0.4.8" },
+    { name = "python-logstash-async", specifier = ">=4.1.0" },
     { name = "requests", specifier = "==2.32.5" },
     { name = "rich", specifier = "==14.3.3" },
     { name = "shellingham", specifier = "==1.5.4" },
@@ -362,6 +362,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/43/fa/6d96a0978d19e17b68d634497769987b16c8f4cd0a7a05048bec693caa6b/decorator-5.2.1.tar.gz", hash = "sha256:65f266143752f734b0a7cc83c46f4618af75b8c5911b00ccb61d0ac9b6da0360", size = 56711, upload-time = "2025-02-24T04:41:34.073Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4e/8c/f3147f5c4b73e7550fe5f9352eaa956ae838d5c51eb58e7a25b9f3e2643b/decorator-5.2.1-py3-none-any.whl", hash = "sha256:d316bb415a2d9e2d2b3abcc4084c6502fc09240e292cd76a76afc106a1c8e04a", size = 9190, upload-time = "2025-02-24T04:41:32.565Z" },
+]
+
+[[package]]
+name = "deprecated"
+version = "1.3.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "wrapt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/49/85/12f0a49a7c4ffb70572b6c2ef13c90c88fd190debda93b23f026b25f9634/deprecated-1.3.1.tar.gz", hash = "sha256:b1b50e0ff0c1fddaa5708a2c6b0a6588bb09b892825ab2b214ac9ea9d92a5223", size = 2932523, upload-time = "2025-10-30T08:19:02.757Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/84/d0/205d54408c08b13550c733c4b85429e7ead111c7f0014309637425520a9a/deprecated-1.3.1-py2.py3-none-any.whl", hash = "sha256:597bfef186b6f60181535a29fbe44865ce137a5079f295b479886c82729d5f3f", size = 11298, upload-time = "2025-10-30T08:19:00.758Z" },
 ]
 
 [[package]]
@@ -786,6 +798,20 @@ wheels = [
 ]
 
 [[package]]
+name = "limits"
+version = "5.8.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "deprecated" },
+    { name = "packaging" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/71/69/826a5d1f45426c68d8f6539f8d275c0e4fcaa57f0c017ec3100986558a41/limits-5.8.0.tar.gz", hash = "sha256:c9e0d74aed837e8f6f50d1fcebcf5fd8130957287206bc3799adaee5092655da", size = 226104, upload-time = "2026-02-05T07:17:35.859Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b9/98/cb5ca20618d205a09d5bec7591fbc4130369c7e6308d9a676a28ff3ab22c/limits-5.8.0-py3-none-any.whl", hash = "sha256:ae1b008a43eb43073c3c579398bd4eb4c795de60952532dc24720ab45e1ac6b8", size = 60954, upload-time = "2026-02-05T07:17:34.425Z" },
+]
+
+[[package]]
 name = "markdown-it-py"
 version = "4.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1007,6 +1033,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pylogbeat"
+version = "2.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b7/41/1daad4fd3820e92365db6f0e867d6e7cf3dc2dc96fc2acf8db479282b310/pylogbeat-2.1.0.tar.gz", hash = "sha256:c2c030050c9f312249500df63a1d651bbe6d9c5df54f70fc434115ef29d51638", size = 11577, upload-time = "2025-11-23T15:57:21.11Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/78/f4/c32538a51ac43aa002bf27a97f18b6ce56fc5aac88edbe745f5c7a95a6ab/pylogbeat-2.1.0-py2.py3-none-any.whl", hash = "sha256:2f691db42d428decbee54cf0d5ac0209314404298deefff70591e6b25388afbc", size = 11216, upload-time = "2025-11-23T15:57:19.778Z" },
+]
+
+[[package]]
 name = "pytest"
 version = "9.0.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1095,10 +1130,18 @@ wheels = [
 ]
 
 [[package]]
-name = "python-logstash"
-version = "0.4.8"
+name = "python-logstash-async"
+version = "4.1.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/f7/3b/c3a957bbdd23859f07905fc3d1adfe89957217a347478c58409f0315cf1d/python-logstash-0.4.8.tar.gz", hash = "sha256:d04e1ce11ecc107e4a4f3b807fc57d96811e964a554081b3bbb44732f74ef5f9", size = 7074, upload-time = "2022-03-30T11:58:04.095Z" }
+dependencies = [
+    { name = "limits" },
+    { name = "pylogbeat" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a2/7f/18db482559941479f322b4a526ecf7ccd90705f01dea12a2930a434b3123/python_logstash_async-4.1.0.tar.gz", hash = "sha256:05c8647a147d2e6b39aa8f0d95ba461030e646af0d15ff2d19a5d802346cb1dc", size = 38135, upload-time = "2025-11-23T16:22:59.586Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/74/40/1910bfe3bec0def5f289844a76e901b38f0526a1c34450c5f813bf501269/python_logstash_async-4.1.0-py2.py3-none-any.whl", hash = "sha256:3fdeaac5b067a4a7d60c35d0d0b077483607e39c5c29d887775a0d213442cd9b", size = 25183, upload-time = "2025-11-23T16:22:58.059Z" },
+]
 
 [[package]]
 name = "pywin32"
