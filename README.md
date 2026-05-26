@@ -50,6 +50,9 @@ cp .env.example .env  # затем заполнить значения
 | `REDIS_CACHE_URL` | URL Redis для cache backend (по умолчанию `redis://localhost:6379/1`) |
 | `CRYPTO_PROVIDER` | `coingecko` или `cmc` (по умолчанию `coingecko`) |
 | `CMC_API_KEY` | API-ключ CoinMarketCap (нужен только при `CRYPTO_PROVIDER=cmc`) |
+| `GRAFANA_ADMIN_PASSWORD` | Пароль администратора Grafana UI (логин `admin`) |
+
+> `ALLOWED_HOSTS` должен включать `web` — Prometheus scrape идёт напрямую к `web:8000` через docker-сеть, и Django проверяет `Host`-заголовок.
 
 ### Миграции и суперпользователь
 
@@ -116,6 +119,13 @@ make test       # запустить тесты (Postgres поднимается
 | `celery-worker` | тот же образ | Воркер Celery |
 | `celery-beat` | тот же образ | Планировщик задач Celery |
 | `nginx` | `nginx:1.29-alpine` | Reverse proxy перед gunicorn, отдаёт статику с диска |
+| `prometheus` | `prom/prometheus:v3.11.3` | Сбор и хранение метрик (TSDB), скрейп `/metrics` Django |
+| `grafana` | `grafana/grafana:11.6.0` | Дашборды по метрикам Prometheus (UI на `127.0.0.1:3000`) |
+| `elasticsearch` | `elasticsearch:9.4.1` | Хранилище логов (single-node, без security в dev) |
+| `logstash` | `logstash:9.4.1` | Pipeline TCP→ES, парсит JSON-логи приложения с порта 5000 |
+| `kibana` | `kibana:9.4.1` | UI для логов в ES (`127.0.0.1:5601`) |
+
+Все три ELK-сервиса пиннятся на одну минорную версию (несовпадение ES/Logstash/Kibana ломает совместимость).
 
 Единственная точка входа снаружи — nginx на `127.0.0.1:80`. Запросы на `/static/` обслуживаются nginx напрямую (через shared volume `staticfiles`), всё остальное проксируется в gunicorn по docker-сети.
 
@@ -282,6 +292,16 @@ Cache-инфраструктура (ключи, TTL, хелпер `cache_aside`,
 недоступности Redis `cache.get` возвращает `None`, остальные операции становятся 
 no-op'ами. Cache-aside эндпоинты делают fallback на БД, watchlist mutations 
 отрабатывают, throttling временно не применяет лимиты. Подавленные исключения логируются через `django_redis.cache` (`DJANGO_REDIS_LOG_IGNORED_EXCEPTIONS = True` + блок `LOGGING`).
+
+## Observability
+
+**Метрики** — Prometheus собирает с `/metrics` Django каждые 5 секунд, Grafana показывает дашборд с RED-панелями (RPS, latency p50/p95/p99, errors, DB queries/sec) и hit-rate кеша. UI: http://127.0.0.1:3000 (логин `admin`, пароль из `GRAFANA_ADMIN_PASSWORD`).
+
+Кастомная бизнес-метрика — `crypto_cache_total{key_prefix, result}` (`Counter` в `crypto/cache.py`).
+
+**Логи** — приложение пишет JSON через `structlog` → `python-logstash-async` → Logstash → Elasticsearch → Kibana. UI: http://127.0.0.1:5601 (Data View `django-logs-*`, Saved Search'и `errors-only` и `user-activity`, dashboard `Django Logs Overview`).
+
+Бизнес-события залогированы в `crypto/tasks.py:fetch_snapshot_task` и в `crypto/services.py` (`buy_coin`, `sell_position`, `validate_symbol`).
 
 ## Тестирование
 Используется разделение на Unit-тесты (логика) и Integration-тесты (работа с БД через Django ORM и REST API через тестовый `APIClient`).
