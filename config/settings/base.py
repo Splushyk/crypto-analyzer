@@ -4,6 +4,7 @@
 """
 
 from datetime import timedelta
+from decimal import Decimal
 from pathlib import Path
 
 import environ
@@ -184,7 +185,17 @@ SPECTACULAR_SETTINGS = {
 
 # --- Logging ---
 
+
+def _convert_decimal(_logger, _method, event_dict):
+    """Конвертирует Decimal -> float во всех полях event_dict."""
+    for key, value in event_dict.items():
+        if isinstance(value, Decimal):
+            event_dict[key] = float(value)
+    return event_dict
+
+
 _shared_processors: list[Processor] = [
+    _convert_decimal,
     structlog.contextvars.merge_contextvars,
     structlog.processors.add_log_level,
     structlog.processors.TimeStamper(fmt="iso"),

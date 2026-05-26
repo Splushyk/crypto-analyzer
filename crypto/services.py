@@ -7,6 +7,7 @@
 
 from decimal import ROUND_HALF_UP, Decimal
 
+import structlog
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import IntegrityError, transaction
@@ -38,6 +39,8 @@ from crypto.exceptions import (
 )
 from crypto.models import Balance, CoinPrice, Portfolio, Snapshot, WatchlistItem
 from src.api_client import ApiClient
+
+logger = structlog.get_logger(__name__)
 
 CENT = Decimal("0.01")
 MONEY_FIELD = DecimalField(max_digits=22, decimal_places=2)
@@ -186,6 +189,7 @@ def validate_symbol(symbol: str) -> tuple[str, str]:
     if validator is None:
         raise ValueError(f"Неизвестный провайдер: {provider}")
 
+    logger.info("validate_symbol", provider=provider, symbol=symbol)
     return validator(symbol)
 
 
@@ -237,6 +241,16 @@ def buy_coin(user: User, symbol: str, amount: Decimal) -> Portfolio:
         buy_price=price,
     )
     transaction.on_commit(lambda: invalidate_portfolio(user.id))
+
+    logger.info(
+        "buy_coin",
+        user_id=user.id,
+        symbol=symbol,
+        amount=amount,
+        price=price,
+        cost=cost,
+        position_id=position.id,
+    )
     return position
 
 
@@ -266,7 +280,10 @@ def sell_position(user: User, position_id: int, amount: Decimal) -> dict:
     balance.amount += proceeds
     balance.save()
 
-    if amount == position.amount:
+    fully_sold = amount == position.amount
+    symbol = position.symbol
+
+    if fully_sold:
         position.delete()
         remaining_id = None
         remaining_amount = Decimal("0")
@@ -277,6 +294,19 @@ def sell_position(user: User, position_id: int, amount: Decimal) -> dict:
         remaining_amount = position.amount
 
     transaction.on_commit(lambda: invalidate_portfolio(user.id))
+
+    logger.info(
+        "sell_position",
+        user_id=user.id,
+        position_id=position_id,
+        symbol=symbol,
+        amount=amount,
+        price=price,
+        proceeds=proceeds,
+        fully_sold=fully_sold,
+        remaining_amount=remaining_amount,
+        new_balance=balance.amount,
+    )
 
     return {
         "position_id": remaining_id,
