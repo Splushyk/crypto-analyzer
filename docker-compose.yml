@@ -87,7 +87,7 @@ services:
         - web
 
     prometheus:
-      image: prom/prometheus:latest
+      image: prom/prometheus:v3.11.3
       volumes:
         - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
         - prometheus_data:/prometheus
