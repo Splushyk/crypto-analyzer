@@ -255,9 +255,11 @@ dependencies = [
     { name = "psycopg2-binary" },
     { name = "pygments" },
     { name = "python-dotenv" },
+    { name = "python-logstash" },
     { name = "requests" },
     { name = "rich" },
     { name = "shellingham" },
+    { name = "structlog" },
     { name = "typer" },
     { name = "typing-extensions" },
     { name = "tzdata" },
@@ -317,9 +319,11 @@ requires-dist = [
     { name = "psycopg2-binary", specifier = ">=2.9.11" },
     { name = "pygments", specifier = "==2.19.2" },
     { name = "python-dotenv", specifier = "==1.2.2" },
+    { name = "python-logstash", specifier = ">=0.4.8" },
     { name = "requests", specifier = "==2.32.5" },
     { name = "rich", specifier = "==14.3.3" },
     { name = "shellingham", specifier = "==1.5.4" },
+    { name = "structlog", specifier = ">=25.5.0" },
     { name = "typer", specifier = "==0.24.1" },
     { name = "typing-extensions", specifier = "==4.15.0" },
     { name = "tzdata", specifier = ">=2025.3" },
@@ -1091,6 +1095,12 @@ wheels = [
 ]
 
 [[package]]
+name = "python-logstash"
+version = "0.4.8"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f7/3b/c3a957bbdd23859f07905fc3d1adfe89957217a347478c58409f0315cf1d/python-logstash-0.4.8.tar.gz", hash = "sha256:d04e1ce11ecc107e4a4f3b807fc57d96811e964a554081b3bbb44732f74ef5f9", size = 7074, upload-time = "2022-03-30T11:58:04.095Z" }
+
+[[package]]
 name = "pywin32"
 version = "311"
 source = { registry = "https://pypi.org/simple" }
@@ -1286,6 +1296,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/28/e3/55dcc2cfbc3ca9c29519eb6884dd1415ecb53b0e934862d3559ddcb7e20b/stack_data-0.6.3.tar.gz", hash = "sha256:836a778de4fec4dcd1dcd89ed8abff8a221f58308462e1c4aa2a3cf30148f0b9", size = 44707, upload-time = "2023-09-30T13:58:05.479Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f1/7b/ce1eafaf1a76852e2ec9b22edecf1daa58175c090266e9f6c64afcd81d91/stack_data-0.6.3-py3-none-any.whl", hash = "sha256:d5558e0c25a4cb0853cddad3d77da9891a08cb85dd9f9f91b9f8cd66e511e695", size = 24521, upload-time = "2023-09-30T13:58:03.53Z" },
+]
+
+[[package]]
+name = "structlog"
+version = "25.5.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ef/52/9ba0f43b686e7f3ddfeaa78ac3af750292662284b3661e91ad5494f21dbc/structlog-25.5.0.tar.gz", hash = "sha256:098522a3bebed9153d4570c6d0288abf80a031dfdb2048d59a49e9dc2190fc98", size = 1460830, upload-time = "2025-10-27T08:28:23.028Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a8/45/a132b9074aa18e799b891b91ad72133c98d8042c70f6240e4c5f9dabee2f/structlog-25.5.0-py3-none-any.whl", hash = "sha256:a8453e9b9e636ec59bd9e79bbd4a72f025981b3ba0f5837aebf48f02f37a7f9f", size = 72510, upload-time = "2025-10-27T08:28:21.535Z" },
 ]
 
 [[package]]
