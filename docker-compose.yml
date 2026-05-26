@@ -37,9 +37,11 @@ services:
     env_file:
       - .env
     environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
       PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus_multiproc
     volumes:
       - staticfiles:/app/staticfiles
+      - web_logstash_queue:/var/lib/logstash-async
     depends_on:
       db:
         condition: service_healthy
@@ -57,6 +59,10 @@ services:
     image: crypto-analyzer:dev
     env_file:
       - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+    volumes:
+      - worker_logstash_queue:/var/lib/logstash-async
     depends_on:
       db:
         condition: service_healthy
@@ -69,6 +75,10 @@ services:
     image: crypto-analyzer:dev
     env_file:
       - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+    volumes:
+      - beat_logstash_queue:/var/lib/logstash-async
     depends_on:
       db:
         condition: service_healthy
@@ -158,3 +168,6 @@ volumes:
   prometheus_data:
   grafana_data:
   elasticsearch_data:
+  web_logstash_queue:
+  worker_logstash_queue:
+  beat_logstash_queue:
