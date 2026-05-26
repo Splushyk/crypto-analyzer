@@ -7,7 +7,9 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+import structlog
 from celery.schedules import crontab
+from structlog.typing import Processor
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -180,20 +182,65 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
 }
 
+# --- Logging ---
+
+_shared_processors: list[Processor] = [
+    structlog.contextvars.merge_contextvars,
+    structlog.processors.add_log_level,
+    structlog.processors.TimeStamper(fmt="iso"),
+    structlog.processors.StackInfoRenderer(),
+    structlog.processors.format_exc_info,
+]
+
+structlog.configure(
+    processors=[
+        *_shared_processors,
+        structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
+)
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
+    "formatters": {
+        "console": {
+            "()": structlog.stdlib.ProcessorFormatter,
+            "processor": structlog.dev.ConsoleRenderer(colors=True),
+            "foreign_pre_chain": _shared_processors,
+        },
+        "json": {
+            "()": structlog.stdlib.ProcessorFormatter,
+            "processor": structlog.processors.JSONRenderer(),
+            "foreign_pre_chain": _shared_processors,
+        },
+    },
     "handlers": {
-        "stderr": {
+        # formatter перебивается на "console" в dev.py для цветного вывода
+        "console": {
             "class": "logging.StreamHandler",
+            "formatter": "json",
+        },
+        "logstash": {
+            "class": "logstash.TCPLogstashHandler",
+            "host": "logstash",
+            "port": 5000,
+            "version": 1,
+            "message_type": "django",
         },
     },
     "loggers": {
         # Подавленные ошибки Redis (см. CACHES.OPTIONS.IGNORE_EXCEPTIONS).
         "django_redis.cache": {
-            "handlers": ["stderr"],
+            "handlers": ["console", "logstash"],
             "level": "ERROR",
             "propagate": False,
         },
+    },
+    "root": {
+        "handlers": ["console", "logstash"],
+        "level": "INFO",
     },
 }

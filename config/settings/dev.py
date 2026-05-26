@@ -15,3 +15,6 @@ MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")  # noqa:
 DEBUG_TOOLBAR_CONFIG = {
     "SHOW_TOOLBAR_CALLBACK": lambda request: DEBUG,
 }
+
+# Цветной structlog ConsoleRenderer вместо JSON для удобства локальной разработки.
+LOGGING["handlers"]["console"]["formatter"] = "console"  # type: ignore[index]  # noqa: F405
