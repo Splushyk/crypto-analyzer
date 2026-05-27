@@ -50,7 +50,9 @@ cp .env.example .env  # затем заполнить значения
 | `REDIS_CACHE_URL` | URL Redis для cache backend (по умолчанию `redis://localhost:6379/1`) |
 | `CRYPTO_PROVIDER` | `coingecko` или `cmc` (по умолчанию `coingecko`) |
 | `CMC_API_KEY` | API-ключ CoinMarketCap (нужен только при `CRYPTO_PROVIDER=cmc`) |
+| `STORAGE` | Тип хранилища для legacy CLI (`src/main.py`): `json` или `sqlite` |
 | `GRAFANA_ADMIN_PASSWORD` | Пароль администратора Grafana UI (логин `admin`) |
+| `SENTRY_DSN` | DSN проекта в Sentry. Если пусто — Sentry SDK не инициализируется (актуально для dev) |
 
 > `ALLOWED_HOSTS` должен включать `web` — Prometheus scrape идёт напрямую к `web:8000` через docker-сеть, и Django проверяет `Host`-заголовок.
 
@@ -66,8 +68,8 @@ uv run python manage.py createsuperuser
 Настройки разделены по окружениям:
 
 * `config/settings/base.py` — общие.
-* `config/settings/dev.py` — локальная разработка (`DEBUG=True`, debug-toolbar). Используется по умолчанию для `manage.py` и Celery.
-* `config/settings/test.py` — pytest (Celery в режиме eager, без throttle).
+* `config/settings/dev.py` — локальная разработка (`DEBUG=True`, debug-toolbar). Используется по умолчанию для `manage.py` и для запуска Celery без docker. В compose всем сервисам (`web`, `celery-worker`, `celery-beat`) явно проставляется `prod`.
+* `config/settings/test.py` — pytest: Celery в режиме eager, throttling выключен, кеш на `fakeredis`, logstash-handler удалён.
 * `config/settings/prod.py` — production (`DEBUG=False`). Используется по умолчанию для `wsgi.py` / gunicorn.
 
 Переопределить можно через переменную окружения:
@@ -127,7 +129,21 @@ make test       # запустить тесты (Postgres поднимается
 
 Все три ELK-сервиса пиннятся на одну минорную версию (несовпадение ES/Logstash/Kibana ломает совместимость).
 
-Единственная точка входа снаружи — nginx на `127.0.0.1:80`. Запросы на `/static/` обслуживаются nginx напрямую (через shared volume `staticfiles`), всё остальное проксируется в gunicorn по docker-сети.
+**Проброшенные порты:**
+
+| Сервис | Хост | URL | Назначение |
+| --- | --- | --- | --- |
+| `nginx` | `127.0.0.1:80` | http://127.0.0.1/ | Единственная точка входа в приложение (REST API, Swagger) |
+| `grafana` | `127.0.0.1:3000` | http://127.0.0.1:3000/ | Дашборды метрик и алёрты |
+| `kibana` | `127.0.0.1:5601` | http://127.0.0.1:5601/ | UI логов |
+| `prometheus` | `127.0.0.1:9090` | http://127.0.0.1:9090/ | TSDB UI (для отладки PromQL-запросов) |
+| `db` (Postgres) | `127.0.0.1:5432` | — | Прямой коннект клиентом (DBeaver, `psql`) |
+| `elasticsearch` | `127.0.0.1:9200` | http://127.0.0.1:9200/ | REST API ES (для отладки индексов) |
+| `logstash` | `127.0.0.1:5000` | — | TCP-вход для JSON-логов приложения |
+
+Все привязки сделаны к loopback-интерфейсу (`127.0.0.1`), а не к `0.0.0.0` — порты снаружи недоступны. `web`, `celery-worker`, `celery-beat`, `redis` не пробрасываются на хост и доступны только внутри docker-сети.
+
+Единственная точка входа в приложение — nginx на `127.0.0.1:80`. Запросы на `/static/` обслуживаются nginx напрямую (через shared volume `staticfiles`), всё остальное проксируется в gunicorn по docker-сети.
 
 **Безопасность:** в `Dockerfile` создаётся системный пользователь `app` (UID 1000), приложение запускается от него — не от root.
 
@@ -165,6 +181,8 @@ uv run gunicorn config.wsgi:application
 
 ### Django management-команды
 * `uv run python manage.py fetch_snapshot --source [coingecko|cmc]` — постановка задачи сбора в очередь Celery (вернёт `task_id`).
+* `uv run python manage.py seed_data` — наполнение БД тестовыми снимками и ценами для локальной разработки.
+* `uv run python manage.py raise_test_error` — поднимает `RuntimeError` для проверки доставки ошибок в Sentry.
 * `uv run python manage.py runserver` — запуск dev REST API.
 * `uv run python manage.py migrate` — применение миграций.
 * `uv run python manage.py collectstatic --noinput` — сборка статики для прод.
@@ -230,6 +248,7 @@ Access TTL — 5 минут, refresh — 1 день, refresh-токены рот
 
 | Метод | Путь | Права | Описание |
 | --- | --- | --- | --- |
+| `GET` | `/health/` | Anyone | Health check: DB, Redis cache, Celery broker. 200 при всех ok, 503 при любом fail |
 | `GET` | `/api/v1/snapshots/` | Anyone | Список снимков с пагинацией, ordering по `created_at` / `total_market_cap` |
 | `GET` | `/api/v1/snapshots/{id}/` | Anyone | Детали снимка с вложенными ценами |
 | `GET` | `/api/v1/coins/` | Anyone | История цен. Фильтры: `symbol`, `min_price`, `max_price`. CursorPagination |
@@ -295,13 +314,53 @@ no-op'ами. Cache-aside эндпоинты делают fallback на БД, wa
 
 ## Observability
 
-**Метрики** — Prometheus собирает с `/metrics` Django каждые 5 секунд, Grafana показывает дашборд с RED-панелями (RPS, latency p50/p95/p99, errors, DB queries/sec) и hit-rate кеша. UI: http://127.0.0.1:3000 (логин `admin`, пароль из `GRAFANA_ADMIN_PASSWORD`).
+Стек observability покрывает три «столпа»: метрики, логи, ошибки.
+
+### Метрики
+
+Prometheus собирает с `/metrics` Django каждые 5 секунд, Grafana показывает дашборд с RED-панелями (RPS, latency p50/p95/p99, errors, DB queries/sec) и hit-rate кеша. UI: http://127.0.0.1:3000 (логин `admin`, пароль из `GRAFANA_ADMIN_PASSWORD`).
 
 Кастомная бизнес-метрика — `crypto_cache_total{key_prefix, result}` (`Counter` в `crypto/cache.py`).
 
-**Логи** — приложение пишет JSON через `structlog` → `python-logstash-async` → Logstash → Elasticsearch → Kibana. UI: http://127.0.0.1:5601 (Data View `django-logs-*`, Saved Search'и `errors-only` и `user-activity`, dashboard `Django Logs Overview`).
+### Логи
+
+Приложение пишет JSON через `structlog` → `python-logstash-async` → Logstash → Elasticsearch → Kibana. UI: http://127.0.0.1:5601 (Data View `django-logs-*`, Saved Search'и `errors-only` и `user-activity`, dashboard `Django Logs Overview`).
 
 Бизнес-события залогированы в `crypto/tasks.py:fetch_snapshot_task` и в `crypto/services.py` (`buy_coin`, `sell_position`, `validate_symbol`).
+
+### Ошибки (Sentry)
+
+В `config/settings/prod.py` инициализируется `sentry-sdk` — только если переменная `SENTRY_DSN` непустая. В dev SDK не активен. `before_send` фильтрует `Http404`, `rest_framework.exceptions.NotFound` и `Throttled` — 404 и 429 в Sentry не летят.
+
+Кастомный DRF exception handler (`crypto/exception_handler.py`) при unhandled exception (не-`APIException`) явно вызывает `sentry_sdk.capture_exception(exc)` перед возвратом 500 — иначе SDK не видит ошибки, проглоченные обёрткой DRF.
+
+User-context (`user.id`, username, email) прицепляется автоматически — включён `send_default_pii=True`.
+
+Уведомления о новых issues — стандартный email-канал Sentry (Alert Rule создаётся при создании проекта автоматически).
+
+Проверка доставки:
+
+```bash
+docker compose exec web python manage.py raise_test_error
+```
+
+### Health check
+
+Эндпоинт `/health/` (без auth, без `/api/v1/` префикса) проверяет три зависимости: PostgreSQL (`SELECT 1`), Redis cache (`set/get`), Celery broker (`inspect.ping`). При всех ok — 200, при любом fail — 503.
+
+Формат ответа:
+
+```json
+// 200 — всё ОК
+{"status": "ok", "checks": {"db": "ok", "cache": "ok", "celery": "ok"}}
+
+// 503 — хотя бы одна зависимость недоступна
+{"status": "degraded", "checks": {"db": "ok", "cache": "fail", "celery": "fail"}}
+```
+
+### Алёрты
+
+Grafana настроен на алёрт `up{job="django"} == 0 for 1m` — при недоступности Django >1 минуты приходит уведомление в Telegram (contact point `telegram-bot` + alert rule в группе `django`, folder `alerts`).
 
 ## Тестирование
 Используется разделение на Unit-тесты (логика) и Integration-тесты (работа с БД через Django ORM и REST API через тестовый `APIClient`).
