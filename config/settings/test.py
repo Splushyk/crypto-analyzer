@@ -25,3 +25,9 @@ CACHES = {
 }
 
 REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []  # noqa: F405
+
+# В тестах не отправляем логи в Logstash: DNS-имя `logstash` доступно только
+# внутри docker-сети, а pytest бежит на хосте. Оставляем только console handler.
+del LOGGING["handlers"]["logstash"]  # type: ignore[attr-defined]  # noqa: F405
+LOGGING["root"]["handlers"] = ["console"]  # type: ignore[index]  # noqa: F405
+LOGGING["loggers"]["django_redis.cache"]["handlers"] = ["console"]  # type: ignore[index]  # noqa: F405
