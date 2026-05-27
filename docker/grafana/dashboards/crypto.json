@@ -77,7 +77,7 @@
               }
             ]
           },
-          "unit": "s"
+          "unit": "reqps"
         },
         "overrides": []
       },
@@ -528,5 +528,5 @@
   "timezone": "browser",
   "title": "Crypto Analyzer",
   "uid": "bfn4wnadd0cg0f",
-  "version": 10
+  "version": 11
 }
