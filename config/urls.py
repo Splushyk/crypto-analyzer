@@ -8,8 +8,11 @@ from drf_spectacular.views import (
 )
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+from crypto.health import health
+
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("health/", health, name="health"),
     path("", include("django_prometheus.urls")),
     path("api/auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path(
