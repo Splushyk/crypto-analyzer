@@ -174,7 +174,7 @@ def _validate_cmc(symbol: str) -> tuple[str, str]:
 
 VALIDATORS = {
     "coingecko": _validate_coingecko,
-    "coinmarketcap": _validate_cmc,
+    "cmc": _validate_cmc,
 }
 
 
