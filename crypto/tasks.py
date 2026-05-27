@@ -1,5 +1,6 @@
 import os
 
+import structlog
 from celery import shared_task
 from django.core.cache import cache
 from django.db import transaction
@@ -24,6 +25,8 @@ from src.analyzer import CryptoAnalyzer
 from src.api_client import ApiClient
 from src.parsers import CMCParser, GeckoParser
 from src.providers import CMCProvider, GeckoProvider
+
+logger = structlog.get_logger(__name__)
 
 COINGECKO_URL = "https://api.coingecko.com/api/v3/coins/markets"
 CMC_URL = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest"
@@ -104,6 +107,8 @@ def _cache_analytics() -> None:
 )
 def fetch_snapshot_task(source="coingecko"):
     """Celery-задача: получает данные от API и сохраняет снимок в БД."""
+    log = logger.bind(task_name="fetch_snapshot_task", source=source)
+    log.info("fetch_snapshot_started")
     provider = _build_provider(source)
     coins = provider.get_coins()
     total_cap = CryptoAnalyzer(coins).analyze_data()["total_market_cap"]
@@ -112,4 +117,9 @@ def fetch_snapshot_task(source="coingecko"):
         transaction.on_commit(invalidate_coin_history)
         transaction.on_commit(invalidate_all_portfolios)
         transaction.on_commit(_cache_analytics)
+    log.info(
+        "fetch_snapshot_succeeded",
+        snapshot_id=snapshot_id,
+        coins_count=len(coins),
+    )
     return snapshot_id

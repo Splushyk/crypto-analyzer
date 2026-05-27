@@ -36,8 +36,8 @@ ENV PYTHONUNBUFFERED=1 \
 # Системный пользователь без shell и home — запускаем приложение от него
 RUN groupadd --system --gid 1000 app \
  && useradd --system --uid 1000 --gid app --no-create-home --shell /usr/sbin/nologin app \
- && mkdir -p /app /app/staticfiles \
- && chown -R app:app /app
+ && mkdir -p /app /app/staticfiles /var/lib/logstash-async \
+ && chown -R app:app /app /var/lib/logstash-async
 
 WORKDIR /app
 

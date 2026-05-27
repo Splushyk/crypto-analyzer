@@ -4,10 +4,13 @@
 """
 
 from datetime import timedelta
+from decimal import Decimal
 from pathlib import Path
 
 import environ
+import structlog
 from celery.schedules import crontab
+from structlog.typing import Processor
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -31,12 +34,14 @@ INSTALLED_APPS = [
     "django_extensions",
     "rest_framework",
     "rest_framework_simplejwt",
+    "django_prometheus",
     "crypto",
     "drf_spectacular",
     "django_filters",
 ]
 
 MIDDLEWARE = [
+    "django_prometheus.middleware.PrometheusBeforeMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -44,6 +49,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "django_prometheus.middleware.PrometheusAfterMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -67,7 +73,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.postgresql",
+        "ENGINE": "django_prometheus.db.backends.postgresql",
         "NAME": env("DB_NAME"),
         "USER": env("DB_USER"),
         "PASSWORD": env("DB_PASSWORD"),
@@ -177,20 +183,75 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
 }
 
+# --- Logging ---
+
+
+def _convert_decimal(_logger, _method, event_dict):
+    """Конвертирует Decimal -> float во всех полях event_dict."""
+    for key, value in event_dict.items():
+        if isinstance(value, Decimal):
+            event_dict[key] = float(value)
+    return event_dict
+
+
+_shared_processors: list[Processor] = [
+    _convert_decimal,
+    structlog.contextvars.merge_contextvars,
+    structlog.processors.add_log_level,
+    structlog.processors.TimeStamper(fmt="iso"),
+    structlog.processors.StackInfoRenderer(),
+    structlog.processors.format_exc_info,
+]
+
+structlog.configure(
+    processors=[
+        *_shared_processors,
+        structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
+)
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
+    "formatters": {
+        "console": {
+            "()": structlog.stdlib.ProcessorFormatter,
+            "processor": structlog.dev.ConsoleRenderer(colors=True),
+            "foreign_pre_chain": _shared_processors,
+        },
+        "json": {
+            "()": structlog.stdlib.ProcessorFormatter,
+            "processor": structlog.processors.JSONRenderer(),
+            "foreign_pre_chain": _shared_processors,
+        },
+    },
     "handlers": {
-        "stderr": {
+        # formatter перебивается на "console" в dev.py для цветного вывода
+        "console": {
             "class": "logging.StreamHandler",
+            "formatter": "json",
+        },
+        "logstash": {
+            "class": "logstash_async.handler.AsynchronousLogstashHandler",
+            "host": "logstash",
+            "port": 5000,
+            "database_path": None,
+            "formatter": "json",
         },
     },
     "loggers": {
         # Подавленные ошибки Redis (см. CACHES.OPTIONS.IGNORE_EXCEPTIONS).
         "django_redis.cache": {
-            "handlers": ["stderr"],
+            "handlers": ["console", "logstash"],
             "level": "ERROR",
             "propagate": False,
         },
+    },
+    "root": {
+        "handlers": ["console", "logstash"],
+        "level": "INFO",
     },
 }

@@ -3,6 +3,7 @@ from typing import Any, cast
 
 from django.core.cache import cache
 from django_redis.cache import RedisCache  # type: ignore[import-untyped]
+from prometheus_client import Counter
 from rest_framework.serializers import Serializer
 
 # TTL чуть больше интервала Beat (раз в час) - кеш не протухнет между запусками.
@@ -27,6 +28,12 @@ CACHE_KEY_PREFIX_WATCHLIST = "watchlist"
 # (тогда у всех юзеров поменялась текущая цена -> все ключи невалидны).
 CACHE_KEY_PREFIX_PORTFOLIO = "portfolio"
 PORTFOLIO_CACHE_TTL = 60 * 70  # с запасом > часа beat-расписания
+
+CACHE_LOOKUPS = Counter(
+    "crypto_cache_total",
+    "Cache lookups by key prefix and result",
+    labelnames=["key_prefix", "result"],
+)
 
 
 def invalidate_coin_history() -> None:
@@ -72,6 +79,8 @@ def cache_aside(
     serializer_cls: type[Serializer],
     ttl: int = ANALYTICS_CACHE_TTL,
     many: bool = False,
+    *,
+    key_prefix: str,
 ) -> Any:
     """
     Cache-aside: вернуть закешированное или посчитать, сериализовать, закешировать.
@@ -80,11 +89,15 @@ def cache_aside(
     """
     cached = cache.get(key)
     if cached is not None:
+        CACHE_LOOKUPS.labels(key_prefix=key_prefix, result="hit").inc()
         return cached
 
     obj = computer()
     if obj is None:
-        return None
-    data = serializer_cls(obj, many=many).data
-    cache.set(key, data, ttl)
+        data = None
+    else:
+        data = serializer_cls(obj, many=many).data
+        cache.set(key, data, ttl)
+
+    CACHE_LOOKUPS.labels(key_prefix=key_prefix, result="miss").inc()
     return data

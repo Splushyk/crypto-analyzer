@@ -1,87 +1,173 @@
 services:
-    db:
-      image: postgres:18
-      env_file:
-        - .env
-      environment:
-        POSTGRES_DB: ${DB_NAME}
-        POSTGRES_USER: ${DB_USER}
-        POSTGRES_PASSWORD: ${DB_PASSWORD}
-      volumes:
-        - pgdata:/var/lib/postgresql
-      ports:
-        - "127.0.0.1:5432:5432"
-      healthcheck:
-        test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
-        interval: 5s
-        timeout: 5s
-        retries: 5
-      command:
-        - "postgres"
-        - "-c"
-        - "shared_preload_libraries=pg_stat_statements"
-        - "-c"
-        - "pg_stat_statements.track=all"
+  db:
+    image: postgres:18
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_preload_libraries=pg_stat_statements"
+      - "-c"
+      - "pg_stat_statements.track=all"
 
-    redis:
-      image: redis:8-alpine
-      healthcheck:
-        test: [ "CMD", "redis-cli", "ping" ]
-        interval: 5s
-        timeout: 3s
-        retries: 5
+  redis:
+    image: redis:8-alpine
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
-    web:
-      build: .
-      image: crypto-analyzer:dev
-      env_file:
-        - .env
-      volumes:
-        - staticfiles:/app/staticfiles
-      depends_on:
-        db:
-          condition: service_healthy
-        redis:
-          condition: service_healthy
-      command: >
-        sh -c "python manage.py migrate &&
-               python manage.py collectstatic --noinput &&
-               gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2"
+  web:
+    build: .
+    image: crypto-analyzer:dev
+    env_file:
+      - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+      PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus_multiproc
+    volumes:
+      - staticfiles:/app/staticfiles
+      - web_logstash_queue:/var/lib/logstash-async
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "mkdir -p /tmp/prometheus_multiproc &&
+             rm -rf /tmp/prometheus_multiproc/* &&
+             python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2"
 
-    celery-worker:
-      build: .
-      image: crypto-analyzer:dev
-      env_file:
-        - .env
-      depends_on:
-        db:
-          condition: service_healthy
-        redis:
-          condition: service_healthy
-      command: celery -A config worker -l info
+  celery-worker:
+    build: .
+    image: crypto-analyzer:dev
+    env_file:
+      - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+    volumes:
+      - worker_logstash_queue:/var/lib/logstash-async
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A config worker -l info
 
-    celery-beat:
-      build: .
-      image: crypto-analyzer:dev
-      env_file:
-        - .env
-      depends_on:
-        db:
-          condition: service_healthy
-        redis:
-          condition: service_healthy
-      command: celery -A config beat -l info
+  celery-beat:
+    build: .
+    image: crypto-analyzer:dev
+    env_file:
+      - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+    volumes:
+      - beat_logstash_queue:/var/lib/logstash-async
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A config beat -l info
 
-    nginx:
-      image: nginx:1.29-alpine
-      volumes:
-        - ./nginx.conf:/etc/nginx/nginx.conf:ro
-        - staticfiles:/usr/share/nginx/html/static:ro
-      ports:
-        - "127.0.0.1:80:80"
-      depends_on:
-        - web
+  nginx:
+    image: nginx:1.29-alpine
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - staticfiles:/usr/share/nginx/html/static:ro
+    ports:
+      - "127.0.0.1:80:80"
+    depends_on:
+      - web
+
+  prometheus:
+    image: prom/prometheus:v3.11.3
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=200h"
+      - "--web.enable-lifecycle"
+    ports:
+      - "127.0.0.1:9090:9090"
+    depends_on:
+      - web
+
+  grafana:
+    image: grafana/grafana:11.6.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - prometheus
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.4.1
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"  # лимит JVM heap, иначе займёт 4GB+
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health | grep -E '\"status\":\"(green|yellow)\"'" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s  # ES стартует медленно
+    ports:
+      - "127.0.0.1:9200:9200"
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:9.4.1
+    volumes:
+      - ./docker/logstash/pipeline:/usr/share/logstash/pipeline:ro
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:5000:5000"
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.4.1
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:5601:5601"
 
 volumes:
   pgdata:
   staticfiles:
+  prometheus_data:
+  grafana_data:
+  elasticsearch_data:
+  web_logstash_queue:
+  worker_logstash_queue:
+  beat_logstash_queue:
